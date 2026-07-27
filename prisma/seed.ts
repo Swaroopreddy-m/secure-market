@@ -1,5 +1,12 @@
 import { PrismaClient } from '@prisma/client'
-/**npx tsx prisma/seed.ts */
+import crypto from 'crypto'
+
+const prisma = new PrismaClient()
+
+function hashPassword(password: string): string {
+  return crypto.createHash("sha256").update(password).digest("hex")
+}
+
 const MOCK_PRODUCTS = [
   {
     id: "1",
@@ -25,7 +32,7 @@ const MOCK_PRODUCTS = [
     price: 180,
     unit: "1 kg",
     category: "Groceries",
-    image: "/images/rice.png",
+    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&q=80",
     inStock: true,
   },
   {
@@ -43,7 +50,7 @@ const MOCK_PRODUCTS = [
     price: 350,
     unit: "10 kg",
     category: "Groceries",
-    image: "/images/atta.png",
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&q=80",
     inStock: false,
   },
   {
@@ -52,7 +59,7 @@ const MOCK_PRODUCTS = [
     price: 15,
     unit: "1 bunch",
     category: "Leafy Vegetables",
-    image: "/images/coriander.png",
+    image: "https://images.unsplash.com/photo-1588879460493-88522c11559f?w=500&q=80",
     inStock: true,
   },
   {
@@ -79,7 +86,7 @@ const MOCK_PRODUCTS = [
     price: 30,
     unit: "1 kg",
     category: "Fresh Vegetables",
-    image: "/images/onions.png",
+    image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&q=80",
     inStock: true,
   },
   {
@@ -88,7 +95,7 @@ const MOCK_PRODUCTS = [
     price: 60,
     unit: "500 g",
     category: "Fresh Vegetables",
-    image: "/images/capsicum.png",
+    image: "https://images.unsplash.com/photo-1589469702204-c48d498d6ac7?w=500&q=80",
     inStock: true,
   },
   {
@@ -97,7 +104,7 @@ const MOCK_PRODUCTS = [
     price: 50,
     unit: "1 kg",
     category: "Fresh Vegetables",
-    image: "/images/carrots.png",
+    image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=500&q=80",
     inStock: true,
   },
   {
@@ -142,7 +149,7 @@ const MOCK_PRODUCTS = [
     price: 45,
     unit: "400 g",
     category: "Groceries",
-    image: "/images/bread.png",
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&q=80",
     inStock: true,
   },
   {
@@ -151,7 +158,7 @@ const MOCK_PRODUCTS = [
     price: 28,
     unit: "500 ml",
     category: "Groceries",
-    image: "/images/milk.png",
+    image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500&q=80",
     inStock: true,
   },
   {
@@ -160,7 +167,7 @@ const MOCK_PRODUCTS = [
     price: 25,
     unit: "1 kg",
     category: "Groceries",
-    image: "/images/salt.png",
+    image: "https://images.unsplash.com/photo-1589469702204-c48d498d6ac7?w=500&q=80",
     inStock: true,
   },
   {
@@ -169,7 +176,7 @@ const MOCK_PRODUCTS = [
     price: 140,
     unit: "1 litre",
     category: "Groceries",
-    image: "/images/oil.png",
+    image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500&q=80",
     inStock: true,
   },
   {
@@ -178,7 +185,7 @@ const MOCK_PRODUCTS = [
     price: 120,
     unit: "1 kg",
     category: "Groceries",
-    image: "/images/dal.png",
+    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&q=80",
     inStock: true,
   },
   {
@@ -187,7 +194,7 @@ const MOCK_PRODUCTS = [
     price: 20,
     unit: "1 bunch",
     category: "Leafy Vegetables",
-    image: "/images/mint.png",
+    image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
     inStock: true,
   },
   {
@@ -196,7 +203,7 @@ const MOCK_PRODUCTS = [
     price: 10,
     unit: "1 bunch",
     category: "Leafy Vegetables",
-    image: "/images/curry leaves.png",
+    image: "https://images.unsplash.com/photo-1588879460493-88522c11559f?w=500&q=80",
     inStock: true,
   },
   {
@@ -219,19 +226,292 @@ const MOCK_PRODUCTS = [
   }
 ];
 
-const prisma = new PrismaClient()
+interface SeedSaaSProduct {
+  name: string;
+  code: string;
+  category: string;
+  description: string;
+  owner: string;
+  environment: string;
+  documentationUrl?: string;
+  repositoryUrl?: string;
+}
+
+const SAAS_PRODUCTS: SeedSaaSProduct[] = [
+  { name: "Payments", code: "PAY-01", category: "Payments", description: "Multi-gateway payment processing engine", owner: "Fintech Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/payments" },
+  { name: "Cards", code: "CRD-01", category: "Cards", description: "Virtual and physical debit/credit card issuance", owner: "Cards Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/cards" },
+  { name: "ATM", code: "ATM-01", category: "ATM", description: "ATM network integration and terminal control", owner: "Banking Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/atm" },
+  { name: "UPI", code: "UPI-01", category: "UPI", description: "Unified Payments Interface connection portal", owner: "Fintech Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/upi" },
+  { name: "Wallet", code: "WLT-01", category: "Wallet", description: "Closed and semi-closed digital wallet server", owner: "Fintech Team", environment: "PRODUCTION" },
+  { name: "POS", code: "POS-01", category: "POS", description: "Merchant point-of-sale terminal software", owner: "Retail Team", environment: "PRODUCTION" },
+  { name: "Merchant Portal", code: "MER-01", category: "Merchant Portal", description: "Merchant settlement and analytics portal", owner: "Retail Team", environment: "PRODUCTION" },
+  { name: "Mobile Banking", code: "MBK-01", category: "Mobile Banking", description: "Retail and commercial mobile banking API suite", owner: "Banking Team", environment: "PRODUCTION" },
+  { name: "Internet Banking", code: "IBK-01", category: "Internet Banking", description: "Corporate and consumer online banking site", owner: "Banking Team", environment: "PRODUCTION" },
+  { name: "Loans", code: "LON-01", category: "Loans", description: "Loan origination and credit underwriting system", owner: "Credit Team", environment: "STAGING" },
+  { name: "School ERP", code: "ERP-01", category: "School ERP", description: "All-in-one School Administration and ERP Portal", owner: "EdTech Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/school-erp" },
+  { name: "HRMS", code: "HRM-01", category: "HRMS", description: "Human Resource Management System", owner: "Ops Team", environment: "PRODUCTION" },
+  { name: "CRM", code: "CRM-01", category: "CRM", description: "Customer Relationship Management tool", owner: "Sales Team", environment: "PRODUCTION" },
+  { name: "CMS", code: "CMS-01", category: "CMS", description: "Content Management System", owner: "Marketing Team", environment: "PRODUCTION" },
+  { name: "Inventory", code: "INV-01", category: "Inventory", description: "Inventory management and logistics tracking", owner: "Logistics Team", environment: "PRODUCTION" },
+  { name: "Billing", code: "BIL-01", category: "Billing", description: "Recurring billing and invoicing module", owner: "Fintech Team", environment: "PRODUCTION" }
+];
+
+const ROLES = [
+  { name: "DEVELOPER", description: "Unrestricted root-level access to system configurations, databases, and logs." },
+  { name: "SUPER_ADMIN", description: "Full business operation access: managing customers, users, products, and billing." },
+  { name: "PRODUCT_ADMIN", description: "Product operations and catalog manager." },
+  { name: "USER", description: "Product owner / shop merchant dashboard access." }
+];
+
+const PERMISSIONS = [
+  { name: "view_dashboard", module: "DASHBOARD", description: "Can view system and analytics dashboards" },
+  { name: "manage_products", module: "PRODUCTS", description: "Can CRUD, clone, and archive products" },
+  { name: "manage_customers", module: "CUSTOMERS", description: "Can CRUD and manage customers" },
+  { name: "manage_users", module: "USERS", description: "Can CRUD and manage users" },
+  { name: "view_audit_logs", module: "AUDIT", description: "Can view business audit logs" },
+  { name: "view_system_logs", module: "SYSTEM", description: "Can view raw developer system logs" },
+  { name: "manage_deployments", module: "DEPLOYMENT", description: "Can control deployments and service status" },
+  { name: "manage_database", module: "DATABASE", description: "Can adjust database settings and run backups" },
+  { name: "manage_config", module: "CONFIG", description: "Can read/write environment variables and configurations" }
+];
 
 async function main() {
-  console.log(`Start seeding ...`)
+  console.log("Start seeding enterprise SaaS models...")
+
+  // 1. Seed Store Products (for grocery storefront)
   for (const product of MOCK_PRODUCTS) {
-    const p = await prisma.product.upsert({
+    await prisma.storeProduct.upsert({
       where: { id: product.id },
       update: product,
-      create: product,
+      create: product
     })
-    console.log(`Created/updated product with id: ${p.id}`)
   }
-  console.log(`Seeding finished.`)
+  console.log("Grocery store products seeded.")
+
+  // 2. Seed Roles
+  const dbRoles: Record<string, any> = {}
+  for (const role of ROLES) {
+    dbRoles[role.name] = await prisma.role.upsert({
+      where: { name: role.name },
+      update: { description: role.description },
+      create: role
+    })
+  }
+  console.log("Roles seeded.")
+
+  // 3. Seed Permissions
+  const dbPermissions: Record<string, any> = {}
+  for (const perm of PERMISSIONS) {
+    dbPermissions[perm.name] = await prisma.permission.upsert({
+      where: { name: perm.name },
+      update: { module: perm.module, description: perm.description },
+      create: perm
+    })
+  }
+  console.log("Permissions seeded.")
+
+  // 4. Map Roles to Permissions (RolePermission)
+  const rolePermissionsMap: Record<string, string[]> = {
+    DEVELOPER: ["view_dashboard", "manage_products", "manage_customers", "manage_users", "view_audit_logs", "view_system_logs", "manage_deployments", "manage_database", "manage_config"],
+    SUPER_ADMIN: ["view_dashboard", "manage_products", "manage_customers", "manage_users", "view_audit_logs"],
+    PRODUCT_ADMIN: ["view_dashboard", "manage_products"],
+    USER: ["view_dashboard"]
+  }
+
+  for (const [roleName, permList] of Object.entries(rolePermissionsMap)) {
+    const roleId = dbRoles[roleName].id
+    for (const permName of permList) {
+      const permissionId = dbPermissions[permName].id
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: { roleId, permissionId }
+        },
+        update: {},
+        create: { roleId, permissionId }
+      })
+    }
+  }
+  console.log("Role permissions mapped.")
+
+  // 5. Seed SaaS Products
+  const dbProducts: Record<string, any> = {}
+  for (const prod of SAAS_PRODUCTS) {
+    dbProducts[prod.code] = await prisma.product.upsert({
+      where: { code: prod.code },
+      update: {
+        name: prod.name,
+        category: prod.category,
+        description: prod.description,
+        owner: prod.owner,
+        environment: prod.environment,
+        documentationUrl: prod.documentationUrl,
+        repositoryUrl: prod.repositoryUrl
+      },
+      create: prod
+    })
+  }
+  console.log("SaaS Products seeded.")
+
+  // 6. Seed default Organization & Customer
+  const defaultOrg = await prisma.organization.upsert({
+    where: { code: "OAK-01" },
+    update: { name: "Oakridge Academy" },
+    create: { name: "Oakridge Academy", code: "OAK-01" }
+  })
+
+  const defaultCust = await prisma.customer.upsert({
+    where: { customerId: "OAK-01-CUST" },
+    update: {
+      companyName: "Oakridge School",
+      type: "School",
+      address: "123 Education Lane",
+      country: "India",
+      state: "Karnataka",
+      city: "Bengaluru",
+      contactPerson: "Sarah Principal",
+      email: "sarah_principal@oakridge.local",
+      phone: "+91 9988776655",
+      status: "ACTIVE",
+      organizationId: defaultOrg.id
+    },
+    create: {
+      customerId: "OAK-01-CUST",
+      companyName: "Oakridge School",
+      type: "School",
+      address: "123 Education Lane",
+      country: "India",
+      state: "Karnataka",
+      city: "Bengaluru",
+      contactPerson: "Sarah Principal",
+      email: "sarah_principal@oakridge.local",
+      phone: "+91 9988776655",
+      status: "ACTIVE",
+      organizationId: defaultOrg.id
+    }
+  })
+  console.log("SaaS Organizations & Customers seeded.")
+
+  // 7. Seed standard configurations
+  await prisma.configuration.upsert({
+    where: { key: "CONCURRENT_LOGIN_POLICY" },
+    update: { value: "FORCE_LOGOUT" },
+    create: { key: "CONCURRENT_LOGIN_POLICY", value: "FORCE_LOGOUT", description: "FORCE_LOGOUT or REJECT_LOGIN" }
+  })
+  await prisma.configuration.upsert({
+    where: { key: "PASSWORD_HISTORY_LIMIT" },
+    update: { value: "5" },
+    create: { key: "PASSWORD_HISTORY_LIMIT", value: "5", description: "Number of passwords stored in history" }
+  })
+  console.log("System configurations seeded.")
+
+  // 8. Seed credentials users
+  const hashedPass = hashPassword("password123")
+
+  const usersToSeed = [
+    {
+      id: "developer-user-1",
+      employeeId: "DEV-001",
+      username: "devroot",
+      name: "System Developer",
+      email: "developer@securemarket.local",
+      role: "DEVELOPER",
+      roleId: dbRoles["DEVELOPER"].id,
+      department: "Engineering",
+      passwordHash: hashedPass
+    },
+    {
+      id: "superadmin-user-1",
+      employeeId: "SAD-001",
+      username: "sarah_admin",
+      name: "Sarah Admin",
+      email: "sarah.admin@securemarket.local",
+      role: "SUPER_ADMIN",
+      roleId: dbRoles["SUPER_ADMIN"].id,
+      department: "Operations",
+      passwordHash: hashedPass
+    },
+    {
+      id: "productadmin-user-1",
+      employeeId: "PAD-001",
+      username: "product_admin",
+      name: "Product Admin",
+      email: "product.admin@securemarket.local",
+      role: "PRODUCT_ADMIN",
+      roleId: dbRoles["PRODUCT_ADMIN"].id,
+      department: "Product Management",
+      passwordHash: hashedPass
+    },
+    {
+      id: "user-shop-1",
+      employeeId: "USR-001",
+      username: "shop_owner",
+      name: "Shop Owner",
+      email: "owner@securemarket.local",
+      role: "USER",
+      roleId: dbRoles["USER"].id,
+      customerId: defaultCust.id,
+      organizationId: defaultOrg.id,
+      department: "Shops",
+      passwordHash: hashedPass
+    }
+  ]
+
+  for (const u of usersToSeed) {
+    await prisma.user.upsert({
+      where: { id: u.id },
+      update: {
+        employeeId: u.employeeId,
+        username: u.username,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        roleId: u.roleId,
+        customerId: u.customerId || null,
+        organizationId: u.organizationId || null,
+        department: u.department,
+        passwordHash: u.passwordHash
+      },
+      create: {
+        id: u.id,
+        employeeId: u.employeeId,
+        username: u.username,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        roleId: u.roleId,
+        customerId: u.customerId || null,
+        organizationId: u.organizationId || null,
+        department: u.department,
+        passwordHash: u.passwordHash
+      }
+    })
+  }
+
+  // 9. Assign Products to default customer
+  await prisma.subscription.upsert({
+    where: { id: "sub-1" },
+    update: {},
+    create: {
+      id: "sub-1",
+      customerId: defaultCust.id,
+      productId: dbProducts["ERP-01"].id,
+      status: "ACTIVE"
+    }
+  })
+
+  await prisma.license.upsert({
+    where: { key: "OAKRIDGE-ERP-LICENSE-KEY-1" },
+    update: {},
+    create: {
+      key: "OAKRIDGE-ERP-LICENSE-KEY-1",
+      customerId: defaultCust.id,
+      productId: dbProducts["ERP-01"].id,
+      status: "ACTIVE"
+    }
+  })
+
+  console.log("Credentials users and initial assignments seeded successfully.")
+  console.log("Database seed completed successfully!")
 }
 
 main()

@@ -3,18 +3,88 @@
 import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
-import { LogOut, Package, User, LogIn, MapPin, ChevronRight, Clock, Loader2 } from "lucide-react";
+import { LogOut, Package, User, MapPin, ChevronRight, Clock, Loader2 } from "lucide-react";
 import Link from "next/link";
+
+interface AddressItem {
+  id: string;
+  street: string;
+  city: string;
+  phone: string;
+  isDefault: boolean;
+}
+
+interface OrderItem {
+  id: string;
+  status: string;
+  createdAt: string;
+  totalAmount: number;
+  items: {
+    id: string;
+    product?: {
+      image: string;
+      name: string;
+    };
+  }[];
+}
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
-  const [orders, setOrders] = useState<any[]>([]);
-  const [addresses, setAddresses] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Auth form states
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setLoginError(null);
+    try {
+      const res = await signIn("credentials", {
+        username,
+        password,
+        redirect: false
+      });
+      if (res?.error) {
+        setLoginError(res.error);
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      setLoginError("Failed to connect to authentication server.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsSubmitting(true);
+    setLoginError(null);
+    try {
+      const res = await signIn("credentials", {
+        redirect: false
+      });
+      if (res?.error) {
+        setLoginError(res.error);
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      setLoginError("Failed to connect to authentication server.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "authenticated") {
-      setIsLoading(true);
+      // setIsLoading is true by default, no need to set it again synchronously
+      // which triggers cascading renders.
       Promise.all([
         fetch("/api/orders").then(res => res.json()),
         fetch("/api/user/addresses").then(res => res.json())
@@ -40,21 +110,72 @@ export default function ProfilePage() {
   if (status === "unauthenticated" || !session) {
     return (
       <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-          <User className="w-10 h-10 text-muted-foreground" />
+        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
+          <User className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h1 className="text-3xl font-bold font-inter tracking-tight mb-4">Account Login</h1>
-        <p className="text-muted-foreground mb-8 text-center max-w-sm">
-          Sign in to Secure Market to track your orders, save items to your cart, and enjoy seamless checkout.
+        <h1 className="text-2xl font-bold font-inter tracking-tight mb-2">Account Login</h1>
+        <p className="text-muted-foreground mb-8 text-center text-xs max-w-sm">
+          Sign in to Secure Market to track orders, manage products, configure SaaS tenants, or access your profile.
         </p>
-        <div className="flex flex-col gap-4 w-full max-w-xs">
-          <button 
-            onClick={() => signIn("demo")}
-            className="w-full bg-foreground text-background px-8 py-3 rounded-full font-bold flex justify-center items-center gap-2 hover:bg-foreground/90 transition-all shadow-md"
+        
+        <form onSubmit={handleLogin} className="w-full max-w-xs space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Username or Email</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. devroot"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full bg-background border border-input rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
+            />
+          </div>
+          
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Password</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-background border border-input rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
+            />
+          </div>
+
+          {loginError && (
+            <div className="bg-red-50 border border-red-100 text-red-650 p-3 rounded-2xl text-[11px] font-bold text-center">
+              {loginError === "ACCOUNT_LOCKED" 
+                ? "Account locked due to excessive failed attempts." 
+                : loginError === "CONCURRENT_SESSION_ACTIVE"
+                ? "Concurrent session active. Terminating other sessions or blocked."
+                : "Invalid credentials. Please verify details."}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-foreground text-background py-2.5 rounded-full font-bold text-xs shadow-md hover:bg-foreground/90 transition-all flex items-center justify-center gap-2"
           >
-            <User className="w-5 h-5" /> Try Demo Account
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
           </button>
-        </div>
+          
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t border-muted"></div>
+            <span className="flex-shrink mx-3 text-[10px] font-bold text-muted-foreground uppercase">or</span>
+            <div className="flex-grow border-t border-muted"></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={isSubmitting}
+            className="w-full bg-muted text-muted-foreground py-2.5 rounded-full font-bold text-xs hover:bg-muted/80 transition-all flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4" /> Try Developer Demo Account
+          </button>
+        </form>
       </div>
     );
   }
@@ -134,7 +255,7 @@ export default function ProfilePage() {
                   <div className="py-20 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary/50" /></div>
                 ) : orders.length === 0 ? (
                   <div className="p-12 text-center text-muted-foreground bg-muted/20">
-                    <p className="text-lg mb-2">You haven't placed any orders yet.</p>
+                    <p className="text-lg mb-2">You haven&apos;t placed any orders yet.</p>
                     <p className="text-sm mb-6">Explore our fresh products and start shopping!</p>
                     <Link href="/" className="inline-block bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all">
                       Browse Shop
@@ -173,9 +294,9 @@ export default function ProfilePage() {
                       </div>
                       
                       <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                        {order.items.slice(0, 4).map((item: any) => (
+                        {order.items?.slice(0, 4).map((item) => (
                           <div key={item.id} className="relative w-12 h-12 rounded-lg border bg-background overflow-hidden flex-shrink-0">
-                            <Image src={item.product?.image} alt={item.product?.name} fill className="object-cover" />
+                            <Image src={item.product?.image || ""} alt={item.product?.name || ""} fill className="object-cover" />
                           </div>
                         ))}
                         {order.items.length > 4 && (

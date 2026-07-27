@@ -18,9 +18,16 @@ export default function Navbar() {
   // Hydration fix for Zustand with persist middleware
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    const handleScroll = () => {
+       if (window.scrollY > 20) {
+          setIsScrolled(true);
+       } else {
+          setIsScrolled(false);
+       }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -39,10 +46,10 @@ export default function Navbar() {
               <Menu className="w-6 h-6" />
             </button>
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl group-hover:scale-110 transition-transform">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center text-white font-bold text-xl group-hover:scale-110 transition-transform">
                 S
               </div>
-              <span className="font-bold text-xl hidden sm:block tracking-tight text-foreground">Secure Market</span>
+              <span className="font-bold text-xl hidden sm:block tracking-tight bg-gradient-to-r from-indigo-600 to-emerald-500 bg-clip-text text-transparent">Secure Market</span>
             </Link>
           </div>
 
@@ -63,6 +70,11 @@ export default function Navbar() {
             >
               <Search className="w-5 h-5" />
             </button>
+            {session?.user?.role && ["SUPER_ADMIN", "ADMIN"].includes(session.user.role) && (
+              <Link href="/admin" className="hidden sm:flex p-2 text-primary hover:text-primary/80 transition-colors items-center gap-2">
+                <span className="text-sm font-bold uppercase tracking-wider">Admin</span>
+              </Link>
+            )}
             <Link href="/profile" className="p-2 text-foreground/80 hover:text-foreground transition-colors flex items-center gap-2">
               {session?.user?.image ? (
                  <div className="w-6 h-6 rounded-full overflow-hidden relative border border-primary/20">

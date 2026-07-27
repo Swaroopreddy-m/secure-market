@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import TabBlockerProvider from "@/components/providers/TabBlockerProvider";
+import StoreLayoutWrapper from "@/components/layout/StoreLayoutWrapper";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -16,8 +16,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Secure Market | Fresh Grocery Delivery",
-  description: "Modern, scalable grocery delivery application. Fresh vegetables, fruits, and daily needs delivered fast.",
+  title: "Secure Market | Enterprise SaaS Portal",
+  description: "Modern, scalable enterprise SaaS application with role-based dashboard portals.",
 };
 
 export default function RootLayout({
@@ -27,13 +27,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${outfit.variable} ${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans bg-background text-foreground bg-gray-50 dark:bg-gray-950">
+      <body className="min-h-full flex flex-col font-sans bg-background text-foreground bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         <AuthProvider>
-          <Navbar />
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
+          <TabBlockerProvider>
+            <StoreLayoutWrapper>
+              {children}
+            </StoreLayoutWrapper>
+          </TabBlockerProvider>
         </AuthProvider>
       </body>
     </html>

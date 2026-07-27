@@ -10,7 +10,10 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, getCartTotal } = useCartStore();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   if (!mounted) return null;
 
@@ -26,7 +29,7 @@ export default function CartPage() {
           <ShoppingBag className="w-10 h-10 text-muted-foreground" />
         </div>
         <h1 className="text-3xl font-bold font-inter tracking-tight mb-4">Your Cart is Empty</h1>
-        <p className="text-muted-foreground mb-8 max-w-md">Looks like you haven't added anything to your cart yet. Browse our categories and discover fresh deals!</p>
+        <p className="text-muted-foreground mb-8 max-w-md">Looks like you haven&apos;t added anything to your cart yet. Browse our categories and discover fresh deals!</p>
         <Link href="/" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-full font-bold transition-all shadow-md">
           Start Shopping
         </Link>

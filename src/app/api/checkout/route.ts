@@ -2,26 +2,22 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { orderSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { items, totalAmount, deliveryStreet, deliveryCity, deliveryPhone } = await request.json();
+    const body = await request.json();
+    const validatedData = orderSchema.parse(body);
 
-    if (!items || items.length === 0) {
-      return new NextResponse("Cart is empty", { status: 400 });
-    }
+    const { items, totalAmount, deliveryStreet, deliveryCity, deliveryPhone } = validatedData;
 
-    if (!deliveryStreet || !deliveryCity || !deliveryPhone) {
-      return new NextResponse("Delivery details missing", { status: 400 });
-    }
-
-    // Safely cast user to any to bypass TS error on .id
-    const user = session.user as any;
+    // Safely cast user to a structural type to access .id
+    const user = session.user as { id?: string; email?: string; name?: string; image?: string };
     const userId = user.id || "demo-user-1";
     const userEmail = user.email || "demo@local";
 
@@ -46,7 +42,7 @@ export async function POST(request: Request) {
         deliveryCity: deliveryCity,
         deliveryPhone: deliveryPhone,
         items: {
-          create: items.map((item: any) => ({
+          create: items.map((item: { id: string; quantity: number; price: number }) => ({
             productId: item.id,
             quantity: item.quantity,
             price: item.price,
@@ -58,6 +54,10 @@ export async function POST(request: Request) {
     return NextResponse.json(order);
   } catch (error) {
     console.error("[CHECKOUT_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      return NextResponse.json({ error: "Validation failed", details: error }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
+

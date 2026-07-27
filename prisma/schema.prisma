@@ -41,10 +41,45 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  role          String    @default("USER") // Keep for backward compatibility
+
+  // Custom fields for Step 7 User Management
+  employeeId    String?   @unique
+  username      String?   @unique
+  passwordHash  String?
+  department    String?
+  status        String    @default("ACTIVE") // ACTIVE, INACTIVE, LOCKED
+  lastLogin     DateTime?
+  loginAttempts Int       @default(0)
+  mfaSecret     String?
+  mfaEnabled    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Multi-tenancy relations
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  customerId     String?
+  customer       Customer?     @relation("CustomerUsers", fields: [customerId], references: [id])
+
+  // RBAC Role relation
+  roleId         String?
+  roleRelation   Role?         @relation(fields: [roleId], references: [id])
+
+  // Assigned items (Step 7: Assigned Products, Assigned Customers)
+  assignedProducts  Product[]  @relation("UserAssignedProducts")
+  assignedCustomers Customer[] @relation("UserAssignedCustomers")
+
+  // NextAuth and grocery relations
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
   addresses     Address[]
+
+  // Audits and Notifications
+  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
 }
 
 model VerificationToken {
@@ -55,7 +90,171 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Application Models
+// Enterprise SaaS Models (Step 13 Database Improvements)
+model Organization {
+  id        String     @id @default(cuid())
+  name      String
+  code      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  customers Customer[]
+  users     User[]
+}
+
+model Customer {
+  id             String         @id @default(cuid())
+  customerId     String         @unique
+  companyName    String
+  type           String
+  address        String
+  country        String
+  state          String
+  city           String
+  contactPerson  String
+  email          String
+  phone          String
+  status         String         @default("ACTIVE")
+  expiry         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  subscriptions  Subscription[]
+  licenses       License[]
+  users          User[]         @relation("CustomerUsers")
+  assignedUsers  User[]         @relation("UserAssignedCustomers")
+}
+
+model Product {
+  id               String         @id @default(cuid())
+  name             String
+  code             String         @unique
+  category         String
+  description      String?
+  version          String         @default("1.0.0")
+  status           String         @default("ACTIVE")
+  owner            String
+  environment      String         @default("PRODUCTION")
+  documentationUrl String?
+  repositoryUrl    String?
+  releaseNotes     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  subscriptions    Subscription[]
+  licenses         License[]
+  assignedUsers    User[]         @relation("UserAssignedProducts")
+}
+
+model ProductCategory {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+}
+
+model Subscription {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status     String    @default("ACTIVE")
+  startDate  DateTime  @default(now())
+  endDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model License {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status     String    @default("ACTIVE")
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique // DEVELOPER, SUPER_ADMIN, CUSTOMER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  module      String
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model ActiveSession {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String
+  module       String
+  status       String
+  ip           String?
+  browser      String?
+  device       String?
+  details      String?
+  responseTime Int?
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Configuration {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Grocery Store Models (Preserved for compatibility)
 model Address {
   id        String   @id @default(cuid())
   userId    String
@@ -69,44 +268,39 @@ model Address {
   @@index([userId])
 }
 
-model Product {
-  id          String   @id @default(cuid())
+model StoreProduct {
+  id          String      @id @default(cuid())
   name        String
   price       Float
   unit        String
   category    String
   image       String
-  inStock     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  inStock     Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
 }
 
 model Order {
-  id          String   @id @default(cuid())
+  id              String      @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User        @relation(fields: [userId], references: [id])
   totalAmount     Float
-  status          String   @default("PENDING") // PENDING, PACKED, OUT_FOR_DELIVERY, DELIVERED
-  
-  // Delivery Snapshot
-  deliveryAddress String   @default("")
-  deliveryCity    String   @default("")
-  deliveryPhone   String   @default("")
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
+  status          String      @default("PENDING") // PENDING, PACKED, OUT_FOR_DELIVERY, DELIVERED
+  deliveryAddress String      @default("")
+  deliveryCity    String      @default("")
+  deliveryPhone   String      @default("")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   items           OrderItem[]
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   StoreProduct @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
 }

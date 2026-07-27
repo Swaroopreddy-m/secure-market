@@ -48,9 +48,14 @@ export default function CheckoutPage() {
           return res.json();
         })
         .then(data => {
-          setAddresses(data);
-          if (data.length > 0) {
-            setSelectedAddressId(data[0].id);
+          if (Array.isArray(data)) {
+            setAddresses(data);
+            if (data.length > 0) {
+              setSelectedAddressId(data[0].id);
+            }
+          } else {
+            console.error("API returned non-array addresses:", data);
+            setAddresses([]);
           }
           setIsLoadingAddresses(false);
         })

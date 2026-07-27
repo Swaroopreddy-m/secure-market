@@ -7,10 +7,11 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id || "demo-user-1";
+    const user = session.user as { id?: string; email?: string; name?: string };
+    const userId = user.id || "demo-user-1";
 
     const orders = await prisma.order.findMany({
       where: {
@@ -31,6 +32,6 @@ export async function GET() {
     return NextResponse.json(orders);
   } catch (error) {
     console.error("[ORDERS_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

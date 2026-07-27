@@ -11,14 +11,15 @@ export async function GET(
     const { id: orderId } = await params;
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!orderId) {
-      return new NextResponse("Missing Order ID", { status: 400 });
+      return NextResponse.json({ error: "Missing Order ID" }, { status: 400 });
     }
 
-    const userId = (session.user as any).id || "demo-user-1";
+    const user = session.user as { id?: string; email?: string; name?: string };
+    const userId = user.id || "demo-user-1";
 
     const order = await prisma.order.findUnique({
       where: {
@@ -35,12 +36,12 @@ export async function GET(
     });
 
     if (!order) {
-      return new NextResponse("Order not found", { status: 404 });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     return NextResponse.json(order);
   } catch (error) {
     console.error("[ORDER_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

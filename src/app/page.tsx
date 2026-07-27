@@ -1,222 +1,243 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import Image from "next/image";
-import { CATEGORIES } from "@/lib/mockData";
-import { Product } from "@prisma/client";
-import ProductCard from "@/components/ui/ProductCard";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Truck, ShieldCheck, Clock, Loader2 } from "lucide-react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Loader2, Eye, EyeOff, Lock, User, Sparkles } from "lucide-react";
 
-function HomeContent() {
-  const searchParams = useSearchParams();
+export default function LoginPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const initialCategory = searchParams.get("category") || CATEGORIES[0];
-  const [activeCategory, setActiveCategory] = useState(initialCategory === "All" ? CATEGORIES[0] : initialCategory);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const handleCategoryChange = (category: string) => {
-    setActiveCategory(category);
-    router.push(`/?category=${category}`, { scroll: false });
-  };
+  // Form states
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Auto-redirect if already authenticated
   useEffect(() => {
-    const categoryFromURL = searchParams.get("category");
-    if (categoryFromURL) {
-      setActiveCategory(categoryFromURL);
+    if (status === "authenticated" && session?.user?.role) {
+      const role = session.user.role;
+      if (role === "DEVELOPER" || role === "SUPER_ADMIN" || role === "ADMIN") {
+        router.push("/admin");
+      } else if (role === "PRODUCT_ADMIN") {
+        router.push("/admin/product-admin");
+      } else if (role === "USER") {
+        router.push("/admin/user");
+      } else {
+        router.push("/store");
+      }
     }
-  }, [searchParams]);
+  }, [status, session, router]);
 
+  // Read saved username if Remember Me was selected
   useEffect(() => {
-    setIsLoading(true);
-    fetch(`/api/products?category=${activeCategory}`)
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setIsLoading(false);
+    const savedUsername = localStorage.getItem("rememberedUsername");
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setLoginError(null);
+
+    if (rememberMe) {
+      localStorage.setItem("rememberedUsername", username);
+    } else {
+      localStorage.removeItem("rememberedUsername");
+    }
+
+    try {
+      const res = await signIn("credentials", {
+        username,
+        password,
+        redirect: false
       });
-  }, [activeCategory]);
-
-  const scrollToProducts = () => {
-    const element = document.getElementById('products');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      if (res?.error) {
+        setLoginError(res.error);
+      }
+    } catch (err) {
+      setLoginError("Failed to connect to authentication server.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const handleQuickLogin = async (user: string) => {
+    setIsSubmitting(true);
+    setLoginError(null);
+    try {
+      const res = await signIn("credentials", {
+        username: user,
+        password: "password123",
+        redirect: false
+      });
+      if (res?.error) {
+        setLoginError(res.error);
+      }
+    } catch (err) {
+      setLoginError("Failed to connect to authentication server.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (status === "loading" || status === "authenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto" />
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Verifying Account Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="relative pt-24 pb-16 md:pt-32 md:pb-24 overflow-hidden">
-        <div className="absolute inset-0 bg-primary/5 -z-10" />
-        {/* Abstract shapes for background */}
-        <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 w-[600px] h-[600px] bg-primary/10 rounded-full blur-3xl -z-10" />
-        <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-3xl -z-10" />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* Decorative Blur Backgrounds */}
+      <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
+
+      {/* Main card */}
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
         
-        <div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6 max-w-xl"
-          >
-            <span className="inline-block py-1 px-3 rounded-full bg-primary/10 text-primary font-semibold text-sm border border-primary/20">
-              Fresh & Fast Delivery
-            </span>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-inter tracking-tight text-foreground leading-[1.1]">
-              Groceries delivered <br />
-              <span className="text-primary italic">fresh</span> to your door.
-            </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Shop from our vast collection of fresh vegetables, fruits, and daily groceries. 
-              Quality guaranteed, secure payments, and fast delivery.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-4">
-              <button 
-                onClick={scrollToProducts}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-full font-bold flex items-center gap-2 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/25"
-              >
-                Shop Now <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="pt-8 flex items-center gap-8 text-sm font-medium text-muted-foreground">
-               <div className="flex items-center gap-2">
-                 <Truck className="w-5 h-5 text-primary" /> Free Delivery
-               </div>
-               <div className="flex items-center gap-2">
-                 <ShieldCheck className="w-5 h-5 text-primary" /> Secure Payment
-               </div>
-               <div className="flex items-center gap-2">
-                 <Clock className="w-5 h-5 text-primary" /> 30 Min Delivery
-               </div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative hidden md:block aspect-[4/3] w-full"
-          >
-             <div className="absolute inset-4 rounded-3xl overflow-hidden shadow-2xl">
-               <Image 
-                 src="https://images.unsplash.com/photo-1542838132-92c53300491e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
-                 alt="Fresh Groceries" 
-                 fill 
-                 sizes="(max-width: 768px) 100vw, 50vw"
-                 className="object-cover"
-                 priority
-               />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-             </div>
-             
-             {/* Floating badge */}
-             <motion.div 
-               animate={{ y: [0, -10, 0] }}
-               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-               className="absolute -left-6 bottom-12 glass-effect p-4 rounded-2xl flex items-center gap-4"
-             >
-               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">🥬</div>
-               <div>
-                 <p className="text-sm font-bold text-foreground">100% Organic</p>
-                 <p className="text-xs text-muted-foreground">Certified Farms</p>
-               </div>
-             </motion.div>
-          </motion.div>
+        {/* Branding header */}
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-gradient-to-tr from-indigo-600 to-emerald-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-indigo-500/25 mx-auto">
+            S
+          </div>
+          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-indigo-600 to-emerald-500 bg-clip-text text-transparent">
+            Secure Market Portal
+          </h1>
+          <p className="text-xs text-slate-500 font-medium">Enter your credentials to access your SaaS dashboard</p>
         </div>
-      </section>
 
-      {/* Category Navigation & Products */}
-      <section id="products" className="py-16 container mx-auto px-4 scroll-mt-20">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <h2 className="text-2xl md:text-3xl font-bold font-inter tracking-tight">Browse Categories</h2>
+        {/* Login form */}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Username or Email</label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                required
+                placeholder="e.g. devroot"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-all"
+              />
+            </div>
+          </div>
           
-          <div className="flex overflow-x-auto hide-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0 gap-2">
-            {CATEGORIES.map(category => (
+          <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-all"
+              />
               <button
-                key={category}
-                onClick={() => handleCategoryChange(category)}
-                className={`whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
-                  activeCategory === category 
-                  ? "bg-foreground text-background shadow-md" 
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition-colors"
               >
-                {category}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-            ))}
+            </div>
           </div>
+
+          {/* Remember me & forgot password */}
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-slate-300 dark:border-slate-800 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-background"
+              />
+              Remember Me
+            </label>
+            <span className="text-indigo-650 hover:underline cursor-not-allowed" title="Future feature implementation">
+              Forgot Password?
+            </span>
+          </div>
+
+          {loginError && (
+            <div className="bg-rose-50 border border-rose-100 text-rose-650 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400 p-3.5 rounded-2xl text-[11px] font-bold text-center">
+              {loginError === "ACCOUNT_LOCKED" 
+                ? "Account locked due to excessive failed attempts." 
+                : loginError === "CONCURRENT_SESSION_ACTIVE"
+                ? "Concurrent session active. Terminating other sessions or blocked."
+                : "Invalid credentials. Please verify details."}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-slate-900 hover:bg-slate-850 dark:bg-indigo-650 dark:hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
+          </button>
+        </form>
+
+        <div className="relative flex py-2 items-center">
+          <div className="flex-grow border-t border-slate-100 dark:border-slate-800"></div>
+          <span className="flex-shrink mx-3 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">SaaS Roles Sandbox</span>
+          <div className="flex-grow border-t border-slate-100 dark:border-slate-800"></div>
         </div>
 
-        <motion.div 
-          layout
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 min-h-[300px]"
-        >
-          {isLoading ? (
-            <div className="col-span-full flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <>
-              <AnimatePresence mode="popLayout">
-                {products.map(product => (
-                  <motion.div
-                    key={product.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProductCard product={product} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              
-              {products.length === 0 && (
-                <div className="col-span-full py-12 text-center text-muted-foreground">
-                  <p>No products found in this category.</p>
-                </div>
-              )}
-            </>
-          )}
-        </motion.div>
-      </section>
-      
-      {/* Banner Section */}
-      <section className="container mx-auto px-4 py-12 mb-16">
-        <div className="bg-primary rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between text-primary-foreground relative overflow-hidden">
-          {/* Decorative pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/food.png')] mix-blend-overlay"></div>
+        {/* Demo Quick Logins */}
+        <div className="grid grid-cols-2 gap-2 text-[10px] font-extrabold text-slate-655 dark:text-slate-400">
+          <button
+            onClick={() => handleQuickLogin("devroot")}
+            disabled={isSubmitting}
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-left transition-all hover:scale-102 flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Developer Sandbox</span>
+          </button>
           
-          <div className="relative z-10 max-w-lg mb-8 md:mb-0">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Get 20% Off Your First Order!</h2>
-            <p className="text-primary-foreground/80 mb-6">Sign up today and use code FRESH20 at checkout to claim your discount on all fresh produce.</p>
-            <button className="bg-white text-primary px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-shadow">
-              Claim Offer
-            </button>
-          </div>
+          <button
+            onClick={() => handleQuickLogin("sarah_admin")}
+            disabled={isSubmitting}
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-left transition-all hover:scale-102 flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Super Admin</span>
+          </button>
           
-          <div className="relative z-10 hidden md:flex items-center justify-center bg-white/20 p-8 rounded-full backdrop-blur-sm border border-white/30">
-             <div className="text-5xl font-black italic tracking-tighter">FRESH20</div>
-          </div>
+          <button
+            onClick={() => handleQuickLogin("product_admin")}
+            disabled={isSubmitting}
+            className="p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-left transition-all hover:scale-102 flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+            <span>Product Admin</span>
+          </button>
+          
+          <button
+            onClick={() => handleQuickLogin("shop_owner")}
+            disabled={isSubmitting}
+            className="col-span-2 p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-center transition-all hover:scale-101 flex items-center justify-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>User (Shop Merchant)</span>
+          </button>
         </div>
-      </section>
+      </div>
     </div>
   );
-}
-
-export default function Home() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin" /></div>}>
-      <HomeContent />
-    </Suspense>
-  )
 }

@@ -11,12 +11,31 @@ const STATUS_STEPS = ["PENDING", "PACKED", "OUT_FOR_DELIVERY", "DELIVERED"];
 const STEP_ICONS = [Package, Package, Truck, CheckCircle2];
 const STEP_LABELS = ["Order Placed", "Packed", "Out for Delivery", "Delivered"];
 
+interface OrderItem {
+  id: string;
+  product: {
+    name: string;
+    image: string;
+  };
+}
+
+interface OrderData {
+  id: string;
+  status: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPhone: string;
+  totalAmount: number;
+  items: OrderItem[];
+  createdAt: string;
+}
+
 export default function TrackOrderPage() {
   const { id } = useParams();
   const { status } = useSession();
   
   const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<OrderData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +53,9 @@ export default function TrackOrderPage() {
           setIsLoading(false);
         });
     } else if (status === "unauthenticated") {
-      setIsLoading(false);
+      // Avoid sync setState if already the desired value
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsLoading((prev) => prev ? false : prev);
     }
   }, [id, status]);
 

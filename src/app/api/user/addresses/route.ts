@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { addressSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id || "demo-user-1";
+    const user = session.user as { id?: string; email?: string; name?: string };
+    const userId = user.id || "demo-user-1";
     const addresses = await prisma.address.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" }
@@ -19,7 +21,7 @@ export async function GET() {
     return NextResponse.json(addresses);
   } catch (error) {
     console.error("[ADDRESSES_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
 
@@ -27,16 +29,16 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { street, city, phone } = await request.json();
+    const body = await request.json();
+    const validatedData = addressSchema.parse(body);
 
-    if (!street || !city || !phone) {
-      return new NextResponse("Bad Request: missing fields", { status: 400 });
-    }
+    const { street, city, phone, isDefault } = validatedData;
 
-    const userId = (session.user as any).id || "demo-user-1";
+    const user = session.user as { id?: string; email?: string; name?: string };
+    const userId = user.id || "demo-user-1";
 
     // Ensure user exists (for demo mock reasons)
     await prisma.user.upsert({
@@ -55,12 +57,17 @@ export async function POST(request: Request) {
         street,
         city,
         phone,
+        isDefault: isDefault || false,
       }
     });
 
     return NextResponse.json(newAddress);
   } catch (error) {
     console.error("[ADDRESSES_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      return NextResponse.json({ error: "Validation failed", details: error }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
+
