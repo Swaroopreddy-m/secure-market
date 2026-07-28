@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
@@ -11,9 +12,20 @@ export default function StoreLayoutWrapper({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
+  // Initialize Theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    const isDark = savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
   
-  // Hide storefront layout elements on standalone login page (/) and all dashboards (/admin/*)
-  const hideLayout = pathname === "/" || pathname.startsWith("/admin");
+  // Hide storefront layout elements on standalone login/register pages and all dashboards (/admin/*)
+  const hideLayout = pathname === "/login" || pathname === "/register" || pathname.startsWith("/admin");
 
   if (hideLayout) {
     return <main className="flex-1 flex flex-col min-h-screen">{children}</main>;

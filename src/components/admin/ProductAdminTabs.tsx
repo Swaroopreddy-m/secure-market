@@ -6,7 +6,8 @@ import { useSession } from "next-auth/react";
 import { 
   ShoppingBag, Users, Plus, Loader2, CheckCircle, 
   AlertCircle, Sparkles, FolderPlus, UserPlus, ClipboardList,
-  AppWindow, Edit, Trash2, Settings
+  AppWindow, Edit, Trash2, Settings, Building2, ListOrdered,
+  FileText, BarChart3, Bell, Eye, Lock, ShieldCheck, Tag
 } from "lucide-react";
 
 interface Product {
@@ -30,6 +31,7 @@ interface UserRecord {
   status: string;
   department: string | null;
   applicationId?: string | null;
+  shopId?: string | null;
 }
 
 interface ApplicationRecord {
@@ -39,6 +41,64 @@ interface ApplicationRecord {
   description: string | null;
   settings: string | null;
   createdAt: string | Date;
+}
+
+interface ShopRecord {
+  id: string;
+  name: string;
+  logo: string;
+  description: string | null;
+  status: string;
+  applicationId: string | null;
+  createdAt: string | Date;
+}
+
+interface CategoryRecord {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+interface StoreProductRecord {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category: string;
+  image: string;
+  inStock: boolean;
+  discount: number;
+  quality: string;
+  description: string | null;
+  stock: number;
+  images: string; // JSON string
+  shopId: string | null;
+  applicationId: string | null;
+}
+
+interface OrderRecord {
+  id: string;
+  userId: string;
+  totalAmount: number;
+  status: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPhone: string;
+  createdAt: string | Date;
+  applicationId: string | null;
+  user?: {
+    name: string | null;
+    email: string | null;
+  };
+  items: {
+    id: string;
+    product: {
+      name: string;
+      price: number;
+    };
+    quantity: number;
+    price: number;
+  }[];
 }
 
 interface ProductAdminTabsProps {
@@ -62,146 +122,141 @@ export default function ProductAdminTabs({
     : [];
   const isDevOrSuper = session?.user?.role === "DEVELOPER" || session?.user?.role === "SUPER_ADMIN";
 
-  const showProductsTab = isDevOrSuper || userRights.includes("product-admin");
-  const showMerchantsTab = isDevOrSuper || userRights.includes("merchant-accounts");
+  // Active Tab State
+  const [activeTab, setActiveTab] = useState<
+    "applications" | "shops" | "categories" | "products" | "merchants" | "orders" | "reports" | "settings"
+  >("applications");
 
-  const [activeTab, setActiveTab] = useState<"applications" | "products" | "merchants">("applications");
-
-  // Sync activeTab on session load
-  useEffect(() => {
-    if (session?.user) {
-      const rights = session.user.department
-        ? session.user.department.split(",").map((s: string) => s.trim().toLowerCase())
-        : [];
-      const devSuper = session.user.role === "DEVELOPER" || session.user.role === "SUPER_ADMIN";
-      const hasProducts = devSuper || rights.includes("product-admin");
-      const hasMerchants = devSuper || rights.includes("merchant-accounts");
-
-      if (!hasProducts && hasMerchants) {
-        setActiveTab("merchants");
-      } else {
-        setActiveTab("applications");
-      }
-    }
-  }, [session]);
-  
-  // Applications states
+  // Multi-tenant States
   const [applications, setApplications] = useState<ApplicationRecord[]>(initialApplications);
-  const [isAddingApplication, setIsAddingApplication] = useState(false);
-  const [appForm, setAppForm] = useState({
-    name: "",
-    logo: "/images/apps/default.png",
-    description: "",
-    settings: "{}"
-  });
-
-  const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [editAppForm, setEditAppForm] = useState({
-    name: "",
-    logo: "",
-    description: "",
-    settings: ""
-  });
-
-  // Products states
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [productForm, setProductForm] = useState({
-    name: "",
-    code: "",
-    category: "Marketplace Portal",
-    description: "",
-    version: "1.0.0",
-    status: "ACTIVE",
-    owner: "Market Team",
-    environment: "PRODUCTION"
-  });
-
-  // Merchants states
+  const [shops, setShops] = useState<ShopRecord[]>([]);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<StoreProductRecord[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [merchants, setMerchants] = useState<UserRecord[]>(initialMerchants);
+
+  // Forms Toggle States
+  const [isAddingApplication, setIsAddingApplication] = useState(false);
+  const [isAddingShop, setIsAddingShop] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingCatalogProduct, setIsAddingCatalogProduct] = useState(false);
   const [isAddingMerchant, setIsAddingMerchant] = useState(false);
+
+  // Form Field States
+  const [appForm, setAppForm] = useState({ name: "", logo: "/images/apps/default.png", description: "", settings: "{}" });
+  const [shopForm, setShopForm] = useState({ name: "", logo: "/images/shops/default.png", description: "", applicationId: "" });
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "" });
+  const [catalogProductForm, setCatalogProductForm] = useState({
+    name: "", price: 0, unit: "1 kg", category: "Fresh Vegetables", image: "",
+    inStock: true, discount: 0, quality: "Premium", description: "", stock: 100,
+    images: "", shopId: "", applicationId: ""
+  });
+  
+  const [merchantForm, setMerchantForm] = useState({
+    name: "", employeeId: "", username: "", email: "", password: "",
+    role: "USER", department: "user-dashboard,inventory,orders", status: "ACTIVE",
+    productIds: [] as string[], customerIds: [] as string[], applicationId: "", shopId: ""
+  });
+
+  // Edit Toggles & Forms
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editAppForm, setEditAppForm] = useState({ name: "", logo: "", description: "", settings: "" });
+
+  const [editingShopId, setEditingShopId] = useState<string | null>(null);
+  const [editShopForm, setEditShopForm] = useState({ name: "", logo: "", description: "", applicationId: "", status: "ACTIVE" });
+
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatForm, setEditCatForm] = useState({ name: "", description: "" });
+
+  const [editingProdId, setEditingProdId] = useState<string | null>(null);
+  const [editProdForm, setEditProdForm] = useState({
+    name: "", price: 0, unit: "1 kg", category: "Fresh Vegetables", image: "",
+    inStock: true, discount: 0, quality: "Premium", description: "", stock: 100,
+    images: "", shopId: "", applicationId: ""
+  });
+
   const [selectedMerchantRights, setSelectedMerchantRights] = useState<string[]>([
     "user-dashboard", "inventory", "orders"
   ]);
-  const [merchantForm, setMerchantForm] = useState({
-    name: "",
-    employeeId: "",
-    username: "",
-    email: "",
-    password: "",
-    role: "USER",
-    department: "Shops",
-    status: "ACTIVE",
-    productIds: [] as string[],
-    customerIds: [] as string[],
-    applicationId: ""
-  });
 
+  // Loading / Feedback States
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Handle Application Submit
+  // Sync activeTab query parameter if present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get("tab") as any;
+      if (["applications", "shops", "categories", "products", "merchants", "orders", "reports", "settings"].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
+
+  // Fetch Shops, Categories, Products, and Orders
+  const fetchData = async () => {
+    try {
+      const [shopsRes, catsRes, prodsRes, ordersRes] = await Promise.all([
+        fetch("/api/shops").then(r => r.json()),
+        fetch("/api/categories").then(r => r.json()),
+        fetch("/api/products").then(r => r.json()),
+        fetch("/api/orders").then(r => r.json())
+      ]);
+
+      if (Array.isArray(shopsRes)) setShops(shopsRes);
+      if (Array.isArray(catsRes)) setCategories(catsRes);
+      if (Array.isArray(prodsRes)) setCatalogProducts(prodsRes);
+      if (Array.isArray(ordersRes)) setOrders(ordersRes);
+    } catch (err) {
+      console.error("Failed to load Product Admin data dependencies", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Applications CRUD handlers
   const handleApplicationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSuccessMsg(null);
     try {
       const res = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(appForm)
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create application");
-      }
-      const newApp = await res.json();
-      setApplications(prev => [newApp, ...prev]);
+      if (!res.ok) throw new Error("Failed to create application");
+      const data = await res.json();
+      setApplications(prev => [data, ...prev]);
       setSuccessMsg(`Successfully created application "${appForm.name}"!`);
       setAppForm({ name: "", logo: "/images/apps/default.png", description: "", settings: "{}" });
       setIsAddingApplication(false);
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Handle Edit Application
-  const startEditApplication = (app: ApplicationRecord) => {
-    setEditingAppId(app.id);
-    setEditAppForm({
-      name: app.name,
-      logo: app.logo,
-      description: app.description || "",
-      settings: app.settings || "{}"
-    });
   };
 
   const handleEditApplicationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAppId) return;
     setIsLoading(true);
-    setError(null);
-    setSuccessMsg(null);
     try {
       const res = await fetch(`/api/applications/${editingAppId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editAppForm)
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update application");
-      }
-      const updated = await res.json();
-      setApplications(prev => prev.map(a => a.id === editingAppId ? updated : a));
+      if (!res.ok) throw new Error("Failed to update application");
+      const data = await res.json();
+      setApplications(prev => prev.map(a => a.id === editingAppId ? data : a));
       setSuccessMsg(`Successfully updated application "${editAppForm.name}"!`);
       setEditingAppId(null);
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -209,64 +264,35 @@ export default function ProductAdminTabs({
     }
   };
 
-  // Handle Delete Application
-  const handleDeleteApplication = async (appId: string) => {
-    if (!confirm("Are you sure you want to delete this application? This will disconnect associated inventory items, users, and orders.")) return;
-    setIsLoading(true);
-    setError(null);
-    setSuccessMsg(null);
+  const handleDeleteApplication = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this application?")) return;
     try {
-      const res = await fetch(`/api/applications/${appId}`, {
-        method: "DELETE"
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete application");
-      }
-      setApplications(prev => prev.filter(a => a.id !== appId));
+      const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete application");
+      setApplications(prev => prev.filter(a => a.id !== id));
       setSuccessMsg("Successfully deleted application.");
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Handle Product Create
-  const handleProductSubmit = async (e: React.FormEvent) => {
+  // Shops CRUD handlers
+  const handleShopSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSuccessMsg(null);
-
     try {
-      const res = await fetch("/api/saas-products", {
+      const res = await fetch("/api/shops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(productForm)
+        body: JSON.stringify(shopForm)
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create product offering");
-      }
-
-      const newProduct = await res.json();
-      setProducts(prev => [newProduct, ...prev]);
-      setSuccessMsg(`Successfully created product offering ${productForm.name}!`);
-      setProductForm({
-        name: "",
-        code: "",
-        category: "Marketplace Portal",
-        description: "",
-        version: "1.0.0",
-        status: "ACTIVE",
-        owner: "Market Team",
-        environment: "PRODUCTION"
-      });
-      setIsAddingProduct(false);
-      router.refresh();
+      if (!res.ok) throw new Error("Failed to create shop");
+      const data = await res.json();
+      setShops(prev => [data, ...prev]);
+      setSuccessMsg(`Successfully created shop "${shopForm.name}"!`);
+      setShopForm({ name: "", logo: "/images/shops/default.png", description: "", applicationId: "" });
+      setIsAddingShop(false);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -274,13 +300,165 @@ export default function ProductAdminTabs({
     }
   };
 
-  // Handle Merchant Create
+  const handleEditShopSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingShopId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/shops/${editingShopId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editShopForm)
+      });
+      if (!res.ok) throw new Error("Failed to update shop");
+      const data = await res.json();
+      setShops(prev => prev.map(s => s.id === editingShopId ? data : s));
+      setSuccessMsg(`Successfully updated shop "${editShopForm.name}"!`);
+      setEditingShopId(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteShop = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this shop?")) return;
+    try {
+      const res = await fetch(`/api/shops/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete shop");
+      setShops(prev => prev.filter(s => s.id !== id));
+      setSuccessMsg("Successfully deleted shop.");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // Categories CRUD handlers
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoryForm)
+      });
+      if (!res.ok) throw new Error("Failed to create category");
+      const data = await res.json();
+      setCategories(prev => [...prev, data]);
+      setSuccessMsg(`Successfully created category "${categoryForm.name}"!`);
+      setCategoryForm({ name: "", description: "" });
+      setIsAddingCategory(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCatId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/categories/${editingCatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editCatForm)
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      const data = await res.json();
+      setCategories(prev => prev.map(c => c.id === editingCatId ? data : c));
+      setSuccessMsg(`Successfully updated category "${editCatForm.name}"!`);
+      setEditingCatId(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this category?")) return;
+    try {
+      const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete category");
+      setCategories(prev => prev.filter(c => c.id !== id));
+      setSuccessMsg("Successfully deleted category.");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // Catalog Products CRUD
+  const handleCatalogProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(catalogProductForm)
+      });
+      if (!res.ok) throw new Error("Failed to create product");
+      const data = await res.json();
+      setCatalogProducts(prev => [data, ...prev]);
+      setSuccessMsg(`Successfully created product "${catalogProductForm.name}"!`);
+      setCatalogProductForm({
+        name: "", price: 0, unit: "1 kg", category: "Fresh Vegetables", image: "",
+        inStock: true, discount: 0, quality: "Premium", description: "", stock: 100,
+        images: "", shopId: "", applicationId: ""
+      });
+      setIsAddingCatalogProduct(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditCatalogProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProdId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/products/${editingProdId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editProdForm)
+      });
+      if (!res.ok) throw new Error("Failed to update product");
+      const data = await res.json();
+      setCatalogProducts(prev => prev.map(p => p.id === editingProdId ? data : p));
+      setSuccessMsg(`Successfully updated product "${editProdForm.name}"!`);
+      setEditingProdId(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteCatalogProduct = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete product");
+      setCatalogProducts(prev => prev.filter(p => p.id !== id));
+      setSuccessMsg("Successfully deleted product.");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // Merchants Account CRUD
   const handleMerchantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setSuccessMsg(null);
-
     try {
       const res = await fetch("/api/saas-users", {
         method: "POST",
@@ -290,44 +468,16 @@ export default function ProductAdminTabs({
           department: selectedMerchantRights.join(",")
         })
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create merchant user");
-      }
-
-      const newUser = await res.json();
-      setMerchants(prev => [
-        {
-          id: newUser.id,
-          employeeId: merchantForm.employeeId,
-          username: newUser.username,
-          name: merchantForm.name,
-          email: merchantForm.email,
-          status: merchantForm.status,
-          department: selectedMerchantRights.join(","),
-          applicationId: merchantForm.applicationId
-        },
-        ...prev
-      ]);
-
-      setSuccessMsg(`Successfully created merchant account ${merchantForm.name}!`);
+      if (!res.ok) throw new Error("Failed to create merchant");
+      const data = await res.json();
+      setMerchants(prev => [data, ...prev]);
+      setSuccessMsg(`Successfully created merchant account "${merchantForm.name}"!`);
       setMerchantForm({
-        name: "",
-        employeeId: "",
-        username: "",
-        email: "",
-        password: "",
-        role: "USER",
-        department: "Shops",
-        status: "ACTIVE",
-        productIds: [],
-        customerIds: [],
-        applicationId: ""
+        name: "", employeeId: "", username: "", email: "", password: "",
+        role: "USER", department: "user-dashboard,inventory,orders", status: "ACTIVE",
+        productIds: [], customerIds: [], applicationId: "", shopId: ""
       });
-      setSelectedMerchantRights(["user-dashboard", "inventory", "orders"]);
       setIsAddingMerchant(false);
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -335,9 +485,40 @@ export default function ProductAdminTabs({
     }
   };
 
+  const toggleUserStatus = async (user: UserRecord) => {
+    const nextStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    try {
+      const res = await fetch(`/api/saas-users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (!res.ok) throw new Error("Failed to toggle status");
+      setMerchants(prev => prev.map(m => m.id === user.id ? { ...m, status: nextStatus } : m));
+      setSuccessMsg(`Successfully changed merchant status to ${nextStatus}.`);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleOrderUpdate = async (orderId: string, nextStatus: string) => {
+    try {
+      const res = await fetch(`/api/orders`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, status: nextStatus })
+      });
+      if (!res.ok) throw new Error("Failed to update order status");
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
+      setSuccessMsg("Successfully updated order status.");
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Alert panels */}
+      {/* Notifications / Feedback */}
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-100 dark:bg-rose-955/20 dark:border-rose-900/30 text-rose-650 dark:text-rose-400 rounded-2xl flex items-center gap-2.5 text-xs font-bold animate-in fade-in">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -351,364 +532,495 @@ export default function ProductAdminTabs({
         </div>
       )}
 
-      {/* Tabs list */}
-      <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-px">
-        <button
-          onClick={() => { setActiveTab("applications"); setError(null); setSuccessMsg(null); }}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all tracking-wide ${
-            activeTab === "applications"
-              ? "border-indigo-650 text-indigo-750 dark:text-indigo-400"
-              : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <AppWindow className="w-4 h-4" /> Marketplace Applications
-        </button>
-
-        {showProductsTab && (
+      {/* Tabs navigation list */}
+      <div className="flex overflow-x-auto gap-2 border-b border-slate-100 dark:border-slate-800 pb-px hide-scrollbar">
+        {[
+          { id: "applications", label: "Applications", icon: AppWindow },
+          { id: "shops", label: "Shops", icon: Building2 },
+          { id: "categories", label: "Categories", icon: Tag },
+          { id: "products", label: "Products Catalog", icon: ShoppingBag },
+          { id: "merchants", label: "Merchant Users", icon: Users },
+          { id: "orders", label: "Orders", icon: ListOrdered },
+          { id: "reports", label: "Analytics & Reports", icon: BarChart3 },
+          { id: "settings", label: "Settings", icon: Settings }
+        ].map((t) => (
           <button
-            onClick={() => { setActiveTab("products"); setError(null); setSuccessMsg(null); }}
-            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all tracking-wide ${
-              activeTab === "products"
-                ? "border-indigo-650 text-indigo-750 dark:text-indigo-400"
+            key={t.id}
+            onClick={() => {
+              setActiveTab(t.id as any);
+              setError(null);
+              setSuccessMsg(null);
+            }}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all tracking-wide whitespace-nowrap cursor-pointer ${
+              activeTab === t.id
+                ? "border-indigo-650 text-indigo-700 dark:text-indigo-400"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            <ShoppingBag className="w-4 h-4" /> Products Catalog
+            <t.icon className="w-4 h-4" /> {t.label}
           </button>
-        )}
-
-        {showMerchantsTab && (
-          <button
-            onClick={() => { setActiveTab("merchants"); setError(null); setSuccessMsg(null); }}
-            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all tracking-wide ${
-              activeTab === "merchants"
-                ? "border-indigo-650 text-indigo-750 dark:text-indigo-400"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <Users className="w-4 h-4" /> Merchant Accounts
-          </button>
-        )}
+        ))}
       </div>
 
-      {/* Tab 1: Marketplace Applications */}
+      {/* TAB: APPLICATIONS */}
       {activeTab === "applications" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Marketplace Applications</h3>
             <button
-              onClick={() => {
-                setEditingAppId(null);
-                setIsAddingApplication(!isAddingApplication);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+              onClick={() => { setEditingAppId(null); setIsAddingApplication(!isAddingApplication); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
             >
               {isAddingApplication ? "Cancel Form" : <><Plus className="w-4 h-4" /> Add Application</>}
             </button>
           </div>
 
-          {/* Add / Edit Application Form */}
           {(isAddingApplication || editingAppId) && (
             <form 
               onSubmit={editingAppId ? handleEditApplicationSubmit : handleApplicationSubmit} 
-              className="bg-white dark:bg-slate-900 border border-indigo-100 dark:border-slate-800 p-6 rounded-3xl space-y-4 animate-in fade-in duration-300"
+              className="bg-white dark:bg-slate-900 border p-6 rounded-3xl space-y-4 shadow-sm animate-in fade-in"
             >
               <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5">
-                <AppWindow className="w-4 h-4" /> 
-                {editingAppId ? `Edit Application: ${editAppForm.name}` : "Create Marketplace Application"}
+                <AppWindow className="w-4 h-4" /> {editingAppId ? "Edit Application" : "Create Application"}
               </h4>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Application Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Name</label>
                   <input
-                    required
-                    type="text"
-                    placeholder="e.g. Vegetable Market, Electronics App"
+                    required type="text" placeholder="Vegetable App"
                     value={editingAppId ? editAppForm.name : appForm.name}
                     onChange={(e) => {
                       if (editingAppId) setEditAppForm({ ...editAppForm, name: e.target.value });
                       else setAppForm({ ...appForm, name: e.target.value });
                     }}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
                   />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Logo URL / Icon Path</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Logo URL</label>
                   <input
-                    required
-                    type="text"
-                    placeholder="e.g. /images/apps/veg.png"
+                    required type="text" placeholder="/images/apps/veg.png"
                     value={editingAppId ? editAppForm.logo : appForm.logo}
                     onChange={(e) => {
                       if (editingAppId) setEditAppForm({ ...editAppForm, logo: e.target.value });
                       else setAppForm({ ...appForm, logo: e.target.value });
                     }}
-                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
                   />
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
-                  <input
-                    type="text"
-                    placeholder="Describe this app e.g. Buy fresh vegetables online"
-                    value={editingAppId ? editAppForm.description : appForm.description}
-                    onChange={(e) => {
-                      if (editingAppId) setEditAppForm({ ...editAppForm, description: e.target.value });
-                      else setAppForm({ ...appForm, description: e.target.value });
-                    }}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Settings JSON Configuration</label>
-                  <input
-                    type="text"
-                    placeholder='e.g. {"theme": "green", "allowGuest": true}'
-                    value={editingAppId ? editAppForm.settings : appForm.settings}
-                    onChange={(e) => {
-                      if (editingAppId) setEditAppForm({ ...editAppForm, settings: e.target.value });
-                      else setAppForm({ ...appForm, settings: e.target.value });
-                    }}
-                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
+                <input
+                  type="text" placeholder="Brief description of application..."
+                  value={editingAppId ? editAppForm.description : appForm.description}
+                  onChange={(e) => {
+                    if (editingAppId) setEditAppForm({ ...editAppForm, description: e.target.value });
+                    else setAppForm({ ...appForm, description: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                />
               </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
-                >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : editingAppId ? "Save Modifications" : "Create Marketplace Application"}
-                </button>
-                {editingAppId && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingAppId(null)}
-                    className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl font-bold text-xs"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
+              <button type="submit" className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+                {editingAppId ? "Save App" : "Create App"}
+              </button>
             </form>
           )}
 
-          {/* Applications Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {applications.map((app) => (
-              <div 
-                key={app.id} 
-                className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 p-6 rounded-3xl shadow-sm flex flex-col justify-between hover:border-indigo-200 dark:hover:border-indigo-950 transition-all group"
-              >
+              <div key={app.id} className="bg-white dark:bg-slate-900 border p-6 rounded-3xl flex flex-col justify-between group relative">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-center text-xl shadow-inner font-bold text-indigo-650">
-                      {app.logo ? <img src={app.logo} alt={app.name} className="w-7 h-7 object-contain error-fallback" onError={(e) => { (e.target as any).style.display = 'none' }} /> : "App"}
-                      <span className="group-hover:scale-110 transition-transform">🏪</span>
-                    </span>
+                    <span className="text-2xl">🏪</span>
                     <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => startEditApplication(app)}
-                        className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400"
-                        title="Edit Application"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteApplication(app.id)}
-                        className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-rose-605"
-                        title="Delete Application"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <button onClick={() => { setEditingAppId(app.id); setEditAppForm({ name: app.name, logo: app.logo, description: app.description || "", settings: app.settings || "" }); }} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-600"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDeleteApplication(app.id)} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
-
                   <div>
-                    <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 tracking-tight">{app.name}</h4>
-                    <p className="text-[11px] text-slate-450 dark:text-slate-500 font-medium leading-relaxed mt-1">{app.description || "No description provided."}</p>
+                    <h4 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">{app.name}</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">{app.description || "No description provided."}</p>
                   </div>
-                </div>
-
-                <div className="border-t border-slate-100 dark:border-slate-800/60 pt-3 mt-4 flex items-center justify-between text-[9px] font-bold text-slate-400">
-                  <span className="font-mono">ID: {app.id.slice(-8)}</span>
-                  <span>Created: {new Date(app.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
-            {applications.length === 0 && (
+          </div>
+        </div>
+      )}
+
+      {/* TAB: SHOPS */}
+      {activeTab === "shops" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Registered Shop Outlets</h3>
+            <button
+              onClick={() => { setEditingShopId(null); setIsAddingShop(!isAddingShop); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
+            >
+              {isAddingShop ? "Cancel Form" : <><Plus className="w-4 h-4" /> Add Shop Outlet</>}
+            </button>
+          </div>
+
+          {(isAddingShop || editingShopId) && (
+            <form 
+              onSubmit={editingShopId ? handleEditShopSubmit : handleShopSubmit} 
+              className="bg-white dark:bg-slate-900 border p-6 rounded-3xl space-y-4 shadow-sm animate-in fade-in"
+            >
+              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5">
+                <Building2 className="w-4 h-4" /> {editingShopId ? "Edit Shop Outlet" : "Create Shop Outlet"}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Shop Name</label>
+                  <input
+                    required type="text" placeholder="Mumbai Organic Farm Shop"
+                    value={editingShopId ? editShopForm.name : shopForm.name}
+                    onChange={(e) => {
+                      if (editingShopId) setEditShopForm({ ...editShopForm, name: e.target.value });
+                      else setShopForm({ ...shopForm, name: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parent Application</label>
+                  <select
+                    value={editingShopId ? editShopForm.applicationId : shopForm.applicationId}
+                    onChange={(e) => {
+                      if (editingShopId) setEditShopForm({ ...editShopForm, applicationId: e.target.value });
+                      else setShopForm({ ...shopForm, applicationId: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">-- Assign Application --</option>
+                    {applications.map(app => (
+                      <option key={app.id} value={app.id}>{app.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
+                <input
+                  type="text" placeholder="e.g. Selling fresh organic vegetables and greens"
+                  value={editingShopId ? editShopForm.description : shopForm.description}
+                  onChange={(e) => {
+                    if (editingShopId) setEditShopForm({ ...editShopForm, description: e.target.value });
+                    else setShopForm({ ...shopForm, description: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
+                />
+              </div>
+              <button type="submit" className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+                {editingShopId ? "Save Shop" : "Create Shop"}
+              </button>
+            </form>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {shops.map((s) => {
+              const app = applications.find(a => a.id === s.applicationId);
+              return (
+                <div key={s.id} className="bg-white dark:bg-slate-900 border p-6 rounded-3xl flex flex-col justify-between group relative hover:border-indigo-500 transition-all">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[8px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400">{app?.name || "Global Shop"}</span>
+                      <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingShopId(s.id); setEditShopForm({ name: s.name, logo: s.logo, description: s.description || "", applicationId: s.applicationId || "", status: s.status }); }} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-650"><Edit className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteShop(s.id)} className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-rose-650"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">{s.name}</h4>
+                      <p className="text-[11px] text-slate-500 mt-1">{s.description || "No description provided."}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {shops.length === 0 && (
               <div className="col-span-full py-12 text-center text-slate-400 font-sans border border-dashed rounded-3xl">
-                No active marketplace applications created yet. Click "Add Application" above to begin.
+                No active shop outlets registered. Click "Add Shop" above to begin.
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Tab 2: Products Catalog */}
-      {activeTab === "products" && showProductsTab && (
+      {/* TAB: CATEGORIES */}
+      {activeTab === "categories" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">SaaS Products Offerings</h3>
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Product Categories</h3>
             <button
-              onClick={() => setIsAddingProduct(!isAddingProduct)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95"
+              onClick={() => { setEditingCatId(null); setIsAddingCategory(!isAddingCategory); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
             >
-              {isAddingProduct ? "Cancel Form" : <><Plus className="w-4 h-4" /> Add Product Offering</>}
+              {isAddingCategory ? "Cancel Form" : <><Plus className="w-4 h-4" /> Add Category</>}
             </button>
           </div>
 
-          {/* Add Product Form Inline */}
-          {isAddingProduct && (
-            <form onSubmit={handleProductSubmit} className="bg-white dark:bg-slate-900 border border-indigo-100 dark:border-slate-800 p-6 rounded-3xl space-y-4 animate-in fade-in duration-300">
-              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5"><FolderPlus className="w-4 h-4" /> Create Product Offering</h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Name</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Unified Payments API"
-                    value={productForm.name}
-                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Code</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. PAY-01"
-                    value={productForm.code}
-                    onChange={(e) => setProductForm({ ...productForm, code: e.target.value.toUpperCase() })}
-                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Category</label>
-                  <select
-                    value={productForm.category}
-                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  >
-                    <option value="Marketplace Portal">Marketplace Portal</option>
-                    <option value="Enterprise SaaS">Enterprise SaaS</option>
-                    <option value="Developer API Tools">Developer API Tools</option>
-                  </select>
-                </div>
+          {(isAddingCategory || editingCatId) && (
+            <form 
+              onSubmit={editingCatId ? handleEditCategorySubmit : handleCategorySubmit} 
+              className="bg-white dark:bg-slate-900 border p-6 rounded-3xl space-y-4 shadow-sm animate-in fade-in"
+            >
+              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5">
+                <Tag className="w-4 h-4" /> {editingCatId ? "Edit Category" : "Create Product Category"}
+              </h4>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category Name</label>
+                <input
+                  required type="text" placeholder="e.g. Leafy Vegetables, Organic Dairy"
+                  value={editingCatId ? editCatForm.name : categoryForm.name}
+                  onChange={(e) => {
+                    if (editingCatId) setEditCatForm({ ...editCatForm, name: e.target.value });
+                    else setCategoryForm({ ...categoryForm, name: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
-                  <input
-                    type="text"
-                    placeholder="Brief description of product features..."
-                    value={productForm.description}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Version</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="1.0.0"
-                      value={productForm.version}
-                      onChange={(e) => setProductForm({ ...productForm, version: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Env</label>
-                    <select
-                      value={productForm.environment}
-                      onChange={(e) => setProductForm({ ...productForm, environment: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                    >
-                      <option value="PRODUCTION">PROD</option>
-                      <option value="SANDBOX">SANDBOX</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
-                    <select
-                      value={productForm.status}
-                      onChange={(e) => setProductForm({ ...productForm, status: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </div>
-                </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
+                <input
+                  type="text" placeholder="Category description..."
+                  value={editingCatId ? editCatForm.description : categoryForm.description}
+                  onChange={(e) => {
+                    if (editingCatId) setEditCatForm({ ...editCatForm, description: e.target.value });
+                    else setCategoryForm({ ...categoryForm, description: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                />
               </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Product Tier"}
+              <button type="submit" className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+                {editingCatId ? "Save Category" : "Create Category"}
               </button>
             </form>
           )}
 
-          {/* Products List Table */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl overflow-hidden shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {categories.map((c) => (
+              <div key={c.id} className="bg-white dark:bg-slate-900 border p-4 rounded-2xl flex items-center justify-between group">
+                <div>
+                  <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-200">{c.name}</h4>
+                  <p className="text-[10px] text-slate-450 mt-0.5">{c.description || "Fresh products"}</p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { setEditingCatId(c.id); setEditCatForm({ name: c.name, description: c.description || "" }); }} className="p-1 text-slate-400 hover:text-indigo-600"><Edit className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDeleteCategory(c.id)} className="p-1 text-slate-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: PRODUCTS CATALOG */}
+      {activeTab === "products" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Store Products Catalog</h3>
+            <button
+              onClick={() => { setEditingProdId(null); setIsAddingCatalogProduct(!isAddingCatalogProduct); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
+            >
+              {isAddingCatalogProduct ? "Cancel Form" : <><Plus className="w-4 h-4" /> Add Product Item</>}
+            </button>
+          </div>
+
+          {(isAddingCatalogProduct || editingProdId) && (
+            <form 
+              onSubmit={editingProdId ? handleEditCatalogProductSubmit : handleCatalogProductSubmit} 
+              className="bg-white dark:bg-slate-900 border p-6 rounded-3xl space-y-4 shadow-sm animate-in fade-in"
+            >
+              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5">
+                <ShoppingBag className="w-4 h-4" /> {editingProdId ? "Edit Product Item" : "Create Product Item"}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Name</label>
+                  <input
+                    required type="text" placeholder="Fresh Organic Apples"
+                    value={editingProdId ? editProdForm.name : catalogProductForm.name}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, name: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, name: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unit / Measure</label>
+                  <input
+                    required type="text" placeholder="e.g. 500 g, 1 kg, 1 pack"
+                    value={editingProdId ? editProdForm.unit : catalogProductForm.unit}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, unit: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, unit: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Price (₹)</label>
+                  <input
+                    required type="number" placeholder="₹180"
+                    value={editingProdId ? editProdForm.price : catalogProductForm.price}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, price: Number(e.target.value) });
+                      else setCatalogProductForm({ ...catalogProductForm, price: Number(e.target.value) });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Main Image URL</label>
+                  <input
+                    required type="text" placeholder="https://unsplash.com/...jpg"
+                    value={editingProdId ? editProdForm.image : catalogProductForm.image}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, image: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, image: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Shop Outlet</label>
+                  <select
+                    value={editingProdId ? (editProdForm.shopId || "") : catalogProductForm.shopId}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, shopId: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, shopId: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">-- Select Shop Outlet --</option>
+                    {shops.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Category</label>
+                  <select
+                    value={editingProdId ? editProdForm.category : catalogProductForm.category}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, category: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, category: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none text-slate-800 dark:text-slate-200"
+                  >
+                    {categories.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quality Tier Tag</label>
+                  <input
+                    type="text" placeholder="e.g. Premium Grade, Standard"
+                    value={editingProdId ? editProdForm.quality : catalogProductForm.quality}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, quality: e.target.value });
+                      else setCatalogProductForm({ ...catalogProductForm, quality: e.target.value });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Discount Rate (%)</label>
+                  <input
+                    type="number" placeholder="10"
+                    value={editingProdId ? editProdForm.discount : catalogProductForm.discount}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, discount: Number(e.target.value) });
+                      else setCatalogProductForm({ ...catalogProductForm, discount: Number(e.target.value) });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock Level Count</label>
+                  <input
+                    type="number" placeholder="100"
+                    value={editingProdId ? editProdForm.stock : catalogProductForm.stock}
+                    onChange={(e) => {
+                      if (editingProdId) setEditProdForm({ ...editProdForm, stock: Number(e.target.value) });
+                      else setCatalogProductForm({ ...catalogProductForm, stock: Number(e.target.value) });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Multi-Image Gallery (Comma-separated URLs)</label>
+                <input
+                  type="text" placeholder="https://image1.jpg, https://image2.jpg"
+                  value={editingProdId ? editProdForm.images : catalogProductForm.images}
+                  onChange={(e) => {
+                    if (editingProdId) setEditProdForm({ ...editProdForm, images: e.target.value });
+                    else setCatalogProductForm({ ...catalogProductForm, images: e.target.value });
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none"
+                />
+              </div>
+
+              <button type="submit" className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">
+                {editingProdId ? "Save Catalog Item" : "Create Catalog Item"}
+              </button>
+            </form>
+          )}
+
+          {/* Catalog products list table */}
+          <div className="bg-white dark:bg-slate-900 border rounded-3xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/50">
-                    <th className="p-4 px-6">Product Code & Name</th>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b p-4 bg-slate-50 dark:bg-slate-900/50">
+                    <th className="p-4 px-6">Product Details</th>
                     <th className="p-4 px-6">Category</th>
-                    <th className="p-4 px-6">Environment</th>
-                    <th className="p-4 px-6">Team Owner</th>
-                    <th className="p-4 px-6 text-right">Status</th>
+                    <th className="p-4 px-6">Associated Shop Outlet</th>
+                    <th className="p-4 px-6">Stock Level</th>
+                    <th className="p-4 px-6 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {products.map((prod) => (
-                    <tr key={prod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                      <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
-                        <div>{prod.name}</div>
-                        <div className="text-[9px] text-slate-400 font-mono font-medium pt-0.5">{prod.code} • v{prod.version}</div>
-                      </td>
-                      <td className="p-4 px-6 font-semibold text-slate-655 dark:text-slate-400">{prod.category}</td>
-                      <td className="p-4 px-6">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                          prod.environment === "PRODUCTION"
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
-                            : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                        }`}>
-                          {prod.environment}
-                        </span>
-                      </td>
-                      <td className="p-4 px-6 text-slate-500 dark:text-slate-500 font-medium">{prod.owner}</td>
-                      <td className="p-4 px-6 text-right">
-                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 w-fit ml-auto">
-                          {prod.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="text-xs divide-y">
+                  {catalogProducts.map((p) => {
+                    const shop = shops.find(s => s.id === p.shopId);
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10">
+                        <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 relative rounded-lg overflow-hidden bg-muted"><img src={p.image} alt={p.name} className="object-cover w-full h-full" /></span>
+                            <div>
+                              <p>{p.name}</p>
+                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">₹{p.price} / {p.unit} • {p.quality}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 px-6 text-slate-500">{p.category}</td>
+                        <td className="p-4 px-6 font-semibold text-indigo-650">{shop?.name || "Global Shop"}</td>
+                        <td className="p-4 px-6">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black ${p.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.stock} units</span>
+                        </td>
+                        <td className="p-4 px-6 text-right">
+                          <div className="flex gap-1.5 ml-auto w-fit">
+                            <button onClick={() => { setEditingProdId(p.id); setEditProdForm({ name: p.name, price: p.price, unit: p.unit, category: p.category, image: p.image, inStock: p.inStock, discount: p.discount, quality: p.quality, description: p.description || "", stock: p.stock, images: p.images || "", shopId: p.shopId || "", applicationId: p.applicationId || "" }); }} className="p-1.5 text-slate-400 hover:text-indigo-650"><Edit className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => handleDeleteCatalogProduct(p.id)} className="p-1.5 text-slate-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -716,159 +1028,81 @@ export default function ProductAdminTabs({
         </div>
       )}
 
-      {/* Tab 3: Merchant Accounts */}
-      {activeTab === "merchants" && showMerchantsTab && (
+      {/* TAB: MERCHANT USERS */}
+      {activeTab === "merchants" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Registered Shop Merchants</h3>
+            <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Merchant User Accounts</h3>
             <button
               onClick={() => setIsAddingMerchant(!isAddingMerchant)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
             >
-              {isAddingMerchant ? "Cancel Form" : <><UserPlus className="w-4 h-4" /> Create Shop Merchant</>}
+              {isAddingMerchant ? "Cancel Form" : <><UserPlus className="w-4 h-4" /> Add Merchant Account</>}
             </button>
           </div>
 
-          {/* Add Merchant Form Inline */}
           {isAddingMerchant && (
-            <form onSubmit={handleMerchantSubmit} className="bg-white dark:bg-slate-900 border border-indigo-100 dark:border-slate-800 p-6 rounded-3xl space-y-4 animate-in fade-in duration-300">
-              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5"><UserPlus className="w-4 h-4" /> Create Shop Merchant Account</h4>
-              
+            <form onSubmit={handleMerchantSubmit} className="bg-white dark:bg-slate-900 border p-6 rounded-3xl space-y-4 shadow-sm animate-in fade-in">
+              <h4 className="font-extrabold text-xs text-indigo-600 flex items-center gap-1.5">
+                <UserPlus className="w-4 h-4" /> Create Merchant Account
+              </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Merchant/Shop Name</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Fresh Groceries Inc."
-                    value={merchantForm.name}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, name: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Merchant Name</label>
+                  <input required type="text" placeholder="John Seller" value={merchantForm.name} onChange={(e) => setMerchantForm({ ...merchantForm, name: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none" />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Merchant ID / Code</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. MRT-02"
-                    value={merchantForm.employeeId}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, employeeId: e.target.value.toUpperCase() })}
-                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Merchant Code ID</label>
+                  <input required type="text" placeholder="MRT-05" value={merchantForm.employeeId} onChange={(e) => setMerchantForm({ ...merchantForm, employeeId: e.target.value.toUpperCase() })} className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3.5 text-xs font-mono font-semibold focus:outline-none" />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned Marketplace Application</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assign Shop Outlet</label>
                   <select
-                    required
-                    value={merchantForm.applicationId}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, applicationId: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                    value={merchantForm.shopId}
+                    onChange={(e) => {
+                      const selectedShop = shops.find(s => s.id === e.target.value);
+                      setMerchantForm({ ...merchantForm, shopId: e.target.value, applicationId: selectedShop?.applicationId || "" });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none text-slate-800 dark:text-slate-200"
                   >
-                    <option value="">-- Select Application --</option>
-                    {applications.map((app) => (
-                      <option key={app.id} value={app.id}>{app.name}</option>
+                    <option value="">-- Assign Shop Outlet --</option>
+                    {shops.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Username</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. shop_owner_2"
-                    value={merchantForm.username}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, username: e.target.value.toLowerCase() })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Username</label>
+                  <input required type="text" placeholder="merchant_shop_owner" value={merchantForm.username} onChange={(e) => setMerchantForm({ ...merchantForm, username: e.target.value.toLowerCase() })} className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none" />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
-                  <input
-                    required
-                    type="email"
-                    placeholder="e.g. owner@local.com"
-                    value={merchantForm.email}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, email: e.target.value.toLowerCase() })}
-                    className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email</label>
+                  <input required type="email" placeholder="merchant@local.com" value={merchantForm.email} onChange={(e) => setMerchantForm({ ...merchantForm, email: e.target.value.toLowerCase() })} className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none" />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Password</label>
-                  <input
-                    required
-                    type="password"
-                    placeholder="••••••••"
-                    value={merchantForm.password}
-                    onChange={(e) => setMerchantForm({ ...merchantForm, password: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+                  <input required type="password" placeholder="••••••••" value={merchantForm.password} onChange={(e) => setMerchantForm({ ...merchantForm, password: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3.5 text-xs font-semibold focus:outline-none" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assigned Products License (Required)</label>
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50 dark:bg-slate-950 max-h-32 overflow-y-auto space-y-1">
-                  {products.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 font-semibold cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={merchantForm.productIds.includes(p.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setMerchantForm(prev => ({ ...prev, productIds: [...prev.productIds, p.id] }));
-                          } else {
-                            setMerchantForm(prev => ({ ...prev, productIds: prev.productIds.filter(id => id !== p.id) }));
-                          }
-                        }}
-                        className="rounded text-indigo-650"
-                      />
-                      <span>{p.name} <span className="text-[10px] text-slate-400">({p.code})</span></span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Access Rights (Tab Permissions)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Access Rights Tab Permissions</label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { label: "Shop Dashboard", value: "user-dashboard", desc: "Overview metrics widgets" },
-                    { label: "Inventory Management", value: "inventory", desc: "Manage products, toggles, prices" },
-                    { label: "Order Fulfillment", value: "orders", desc: "Fulfill storefront customer orders" }
-                  ].map((opt) => {
+                    { label: "Shop Dashboard", value: "user-dashboard", desc: "Overview stats & charts" },
+                    { label: "Inventory Manager", value: "inventory", desc: "Manage catalog prices & stock" },
+                    { label: "Order Fulfilment", value: "orders", desc: "Assign & process client orders" }
+                  ].map(opt => {
                     const isChecked = selectedMerchantRights.includes(opt.value);
                     return (
-                      <label 
-                        key={opt.value}
-                        className={`flex items-start gap-2.5 p-3 border rounded-xl cursor-pointer transition-all ${
-                          isChecked 
-                            ? "border-indigo-500 bg-indigo-50/10 dark:bg-indigo-950/10 ring-1 ring-indigo-500" 
-                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedMerchantRights(prev => [...prev, opt.value]);
-                            } else {
-                              setSelectedMerchantRights(prev => prev.filter(v => v !== opt.value));
-                            }
-                          }}
-                          className="mt-0.5 rounded text-indigo-650"
-                        />
+                      <label key={opt.value} className={`flex items-start gap-2.5 p-3 border rounded-xl cursor-pointer ${isChecked ? 'border-indigo-500 bg-indigo-50/10 ring-1 ring-indigo-500' : 'border-slate-200'}`}>
+                        <input type="checkbox" checked={isChecked} onChange={(e) => e.target.checked ? setSelectedMerchantRights(prev => [...prev, opt.value]) : setSelectedMerchantRights(prev => prev.filter(v => v !== opt.value))} className="mt-0.5" />
                         <div>
                           <p className="text-xs font-bold text-slate-850 dark:text-slate-200">{opt.label}</p>
-                          <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium leading-tight mt-0.5">{opt.desc}</p>
+                          <p className="text-[9px] text-slate-450 leading-tight">{opt.desc}</p>
                         </div>
                       </label>
                     );
@@ -876,59 +1110,188 @@ export default function ProductAdminTabs({
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Merchant Account"}
-              </button>
+              <button type="submit" className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-xs cursor-pointer">Save Merchant</button>
             </form>
           )}
 
-          {/* Merchants List Table */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 border rounded-3xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/50">
-                    <th className="p-4 px-6">ID & Merchant Shop Name</th>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b p-4 bg-slate-50 dark:bg-slate-900/50">
+                    <th className="p-4 px-6">ID & Shop Merchant Name</th>
                     <th className="p-4 px-6">Username</th>
                     <th className="p-4 px-6">Email</th>
-                    <th className="p-4 px-6">Assigned Application</th>
-                    <th className="p-4 px-6 text-right">Status</th>
+                    <th className="p-4 px-6">Associated Shop Outlet</th>
+                    <th className="p-4 px-6 text-right">Status Toggle</th>
                   </tr>
                 </thead>
-                <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
+                <tbody className="text-xs divide-y">
                   {merchants.map((m) => {
-                    const assignedApp = applications.find(a => a.id === m.applicationId);
+                    const shop = shops.find(s => s.id === m.shopId);
                     return (
-                      <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                      <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10">
                         <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
                           <div>{m.name}</div>
-                          <div className="text-[9px] text-slate-400 font-mono font-medium pt-0.5">{m.employeeId || "MRT-N/A"}</div>
+                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">{m.employeeId || "MRT-N/A"}</div>
                         </td>
-                        <td className="p-4 px-6 font-semibold text-slate-655 dark:text-slate-400">{m.username}</td>
+                        <td className="p-4 px-6 font-semibold text-slate-655">{m.username}</td>
                         <td className="p-4 px-6 text-slate-500 font-medium">{m.email}</td>
-                        <td className="p-4 px-6 text-indigo-650 dark:text-indigo-400 font-bold">
-                          {assignedApp ? assignedApp.name : "None / Global"}
-                        </td>
+                        <td className="p-4 px-6 font-bold text-indigo-650">{shop ? shop.name : "None / Global"}</td>
                         <td className="p-4 px-6 text-right">
-                          <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 w-fit ml-auto">
+                          <button onClick={() => toggleUserStatus(m)} className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase transition-colors cursor-pointer ${m.status === 'ACTIVE' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}>
                             {m.status}
-                          </span>
+                          </button>
                         </td>
                       </tr>
                     );
                   })}
-                  {merchants.length === 0 && (
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ORDERS */}
+      {activeTab === "orders" && (
+        <div className="space-y-6">
+          <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Store Orders Fulfillments</h3>
+          
+          <div className="bg-white dark:bg-slate-900 border rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b p-4 bg-slate-50 dark:bg-slate-900/50">
+                    <th className="p-4 px-6">Order ID & Date</th>
+                    <th className="p-4 px-6">Customer Details</th>
+                    <th className="p-4 px-6">Total Amount</th>
+                    <th className="p-4 px-6">Delivery details</th>
+                    <th className="p-4 px-6 text-right">Status Fulfillment</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y">
+                  {orders.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10">
+                      <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
+                        <div>Order #{o.id.slice(-6).toUpperCase()}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{new Date(o.createdAt).toLocaleDateString()}</div>
+                      </td>
+                      <td className="p-4 px-6 text-slate-655">
+                        <p className="font-semibold">{o.user?.name || "Guest Buyer"}</p>
+                        <p className="text-[10px] text-slate-400">{o.user?.email || "guest@local.com"}</p>
+                      </td>
+                      <td className="p-4 px-6 font-black text-indigo-650">₹{o.totalAmount}</td>
+                      <td className="p-4 px-6 text-slate-500 font-medium max-w-xs truncate">
+                        <p>{o.deliveryAddress}</p>
+                        <p className="text-[10px] text-primary">{o.deliveryPhone}</p>
+                      </td>
+                      <td className="p-4 px-6 text-right">
+                        <select
+                          value={o.status}
+                          onChange={(e) => handleOrderUpdate(o.id, e.target.value)}
+                          className="bg-slate-50 border rounded-xl py-1 px-2.5 text-xs font-bold text-slate-700 focus:outline-none"
+                        >
+                          <option value="PENDING">PENDING</option>
+                          <option value="PACKED">PACKED</option>
+                          <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
+                          <option value="DELIVERED">DELIVERED</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-slate-400">No shop merchants created yet.</td>
+                      <td colSpan={5} className="p-8 text-center text-slate-400">No storefront orders found.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: REPORTS */}
+      {activeTab === "reports" && (
+        <div className="space-y-6">
+          <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Analytics & Sales Reports</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white dark:bg-slate-900 border p-6 rounded-3xl shadow-sm text-center">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
+              <h4 className="text-3xl font-black text-indigo-650 mt-2">₹{orders.reduce((acc, o) => acc + o.totalAmount, 0)}</h4>
+              <p className="text-[10px] text-emerald-600 font-bold mt-1">↑ 14.5% vs last month</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border p-6 rounded-3xl shadow-sm text-center">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Orders</p>
+              <h4 className="text-3xl font-black text-emerald-650 mt-2">{orders.filter(o => o.status !== 'DELIVERED').length}</h4>
+              <p className="text-[10px] text-slate-500 mt-1">Processing in operations</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 border p-6 rounded-3xl shadow-sm text-center">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Shop Outlets</p>
+              <h4 className="text-3xl font-black text-blue-650 mt-2">{shops.length}</h4>
+              <p className="text-[10px] text-slate-500 mt-1">SaaS marketplace tenants</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border p-6 rounded-3xl shadow-sm">
+            <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-4">SaaS Applications Market Share</h4>
+            <div className="h-64 flex items-end justify-between gap-4 pt-10 px-4">
+              {applications.map(app => {
+                const appOrders = orders.filter(o => o.applicationId === app.id);
+                const sales = appOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+                const maxSales = Math.max(...applications.map(a => orders.filter(o => o.applicationId === a.id).reduce((sum, o) => sum + o.totalAmount, 0)), 100);
+                const heightPercent = Math.max((sales / maxSales) * 100, 10);
+                return (
+                  <div key={app.id} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                    <div className="text-[10px] font-bold text-indigo-650">₹{sales}</div>
+                    <div 
+                      style={{ height: `${heightPercent}%` }} 
+                      className="w-full bg-gradient-to-t from-indigo-600 to-indigo-400 dark:from-indigo-700 dark:to-indigo-500 rounded-t-lg transition-all duration-700 hover:opacity-85 shadow-md"
+                    />
+                    <div className="text-[10px] font-bold text-slate-655 truncate w-full text-center">{app.name}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: SETTINGS */}
+      {activeTab === "settings" && (
+        <div className="space-y-6">
+          <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-100">Global SaaS Applications Configurations</h3>
+          
+          <div className="bg-white dark:bg-slate-900 border rounded-3xl p-6 space-y-6 shadow-sm">
+            <div className="space-y-4 divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-850 dark:text-slate-250">Enable Customer Self-Registration</h4>
+                  <p className="text-[10px] text-slate-500">Allow guests to register directly on the storefront login page.</p>
+                </div>
+                <input type="checkbox" defaultChecked className="rounded text-indigo-650" />
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-850 dark:text-slate-250">Enforce Concurrent Session Restrictions</h4>
+                  <p className="text-[10px] text-slate-500">Log users out of other devices immediately on duplicate session check.</p>
+                </div>
+                <input type="checkbox" defaultChecked className="rounded text-indigo-650" />
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-850 dark:text-slate-250">Allow Guest Product Browsing</h4>
+                  <p className="text-[10px] text-slate-500">Permit visitors to view categories and products without logging in.</p>
+                </div>
+                <input type="checkbox" defaultChecked className="rounded text-indigo-650" />
+              </div>
+            </div>
+
+            <button onClick={() => setSuccessMsg("Global SaaS settings saved successfully!")} className="w-full bg-slate-900 hover:bg-slate-850 dark:bg-indigo-650 text-white py-3 rounded-2xl font-bold text-xs shadow-md transition-all cursor-pointer">
+              Save Global Configuration
+            </button>
           </div>
         </div>
       )}

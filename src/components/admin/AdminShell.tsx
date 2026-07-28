@@ -21,28 +21,43 @@ interface NavItem {
 }
 
 const ALL_NAV_ITEMS: NavItem[] = [
+  // Developer
   { name: "Developer Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["DEVELOPER"] },
-  { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
-  { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Shop Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
-  { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Customers", href: "/admin/customers", icon: Building2, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
-  { name: "Organizations", href: "/admin/organizations", icon: ShieldCheck, allowedRoles: ["DEVELOPER"] },
-  { name: "Users", href: "/admin/users", icon: Users, allowedRoles: ["DEVELOPER", "SUPER_ADMIN", "ADMIN"] },
-  { name: "Roles & Matrix", href: "/admin/roles", icon: ShieldCheck, allowedRoles: ["DEVELOPER"] },
-  { name: "Audit Logs", href: "/admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
+  { name: "System Monitoring", href: "/admin/monitoring", icon: Activity, allowedRoles: ["DEVELOPER"] },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["DEVELOPER"] },
   { name: "API Logs", href: "/admin/api-logs", icon: Terminal, allowedRoles: ["DEVELOPER"] },
+  { name: "Organizations", href: "/admin/organizations", icon: Building2, allowedRoles: ["DEVELOPER"] },
+  { name: "Roles & Matrix", href: "/admin/roles", icon: ShieldCheck, allowedRoles: ["DEVELOPER"] },
   { name: "Database", href: "/admin/database", icon: Database, allowedRoles: ["DEVELOPER"] },
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart3, allowedRoles: ["DEVELOPER"] },
   { name: "Deployments", href: "/admin/deployments", icon: Cpu, allowedRoles: ["DEVELOPER"] },
   { name: "Feature Flags", href: "/admin/configurations", icon: Sliders, allowedRoles: ["DEVELOPER"] },
-  { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
-  { name: "Reports", href: "/admin/reports", icon: FileText, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
   { name: "Backups", href: "/admin/backups", icon: History, allowedRoles: ["DEVELOPER"] },
-  { name: "Monitoring", href: "/admin/monitoring", icon: Activity, allowedRoles: ["DEVELOPER"] },
-  { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
-  { name: "Store Products", href: "/admin/store-products", icon: ShoppingBag, allowedRoles: ["ADMIN", "DEVELOPER", "USER"] },
-  { name: "Store Orders", href: "/admin/orders", icon: ListOrdered, allowedRoles: ["ADMIN", "DEVELOPER", "USER"] }
+  
+  // Super Admin
+  { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
+  { name: "Users", href: "/admin/users", icon: Users, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
+  { name: "Customers", href: "/admin/customers", icon: Building2, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Reports", href: "/admin/reports", icon: FileText, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["SUPER_ADMIN", "DEVELOPER"] },
+
+  // Product Admin
+  { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Applications", href: "/admin/product-admin?tab=applications", icon: Sliders, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Shops", href: "/admin/product-admin?tab=shops", icon: Building2, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Categories", href: "/admin/product-admin?tab=categories", icon: ListOrdered, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Products", href: "/admin/product-admin?tab=products", icon: ShoppingBag, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Users", href: "/admin/product-admin?tab=merchants", icon: Users, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Reports", href: "/admin/product-admin?tab=reports", icon: FileText, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Settings", href: "/admin/product-admin?tab=settings", icon: Settings, allowedRoles: ["PRODUCT_ADMIN"] },
+
+  // Market User (Merchant)
+  { name: "Shop Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
+  { name: "Products", href: "/admin/user?tab=inventory", icon: ShoppingBag, allowedRoles: ["USER"] },
+  { name: "Inventory", href: "/admin/user?tab=inventory", icon: Sliders, allowedRoles: ["USER"] },
+  { name: "Orders Assigned", href: "/admin/user?tab=orders", icon: ListOrdered, allowedRoles: ["USER"] },
+  { name: "Settings", href: "/admin/user?tab=settings", icon: Settings, allowedRoles: ["USER"] }
 ];
 
 export default function AdminShell({
@@ -87,24 +102,37 @@ export default function AdminShell({
     if (sessionUser.role === "DEVELOPER") return true;
 
     // 3. Filter by granular Access Rights (Tabs) stored in department field
-    if (item.name === "Customers" && !userRights.includes("customers")) return false;
-    if (item.name === "Users" && !userRights.includes("users")) return false;
-    if (item.name === "Reports" && !userRights.includes("reports")) return false;
-    if (item.name === "Settings" && !userRights.includes("settings")) return false;
-    if (item.name === "Products (SaaS)" && !userRights.includes("products")) return false;
-    if (item.name === "Product Dashboard" && !userRights.includes("product-admin")) return false;
-    if (item.name === "Shop Dashboard" && !userRights.includes("user-dashboard")) return false;
+    if (sessionUser.role === "SUPER_ADMIN") {
+      if (item.name === "Customers" && !userRights.includes("customers")) return false;
+      if (item.name === "Users" && !userRights.includes("users")) return false;
+      if (item.name === "Reports" && !userRights.includes("reports")) return false;
+      if (item.name === "Settings" && !userRights.includes("settings")) return false;
+      if (item.name === "Products (SaaS)" && !userRights.includes("products")) return false;
+    }
+    
+    if (sessionUser.role === "PRODUCT_ADMIN") {
+      if (item.name === "Applications" && !userRights.includes("applications")) return false;
+      if (item.name === "Shops" && !userRights.includes("shops")) return false;
+      if (item.name === "Categories" && !userRights.includes("categories")) return false;
+      if (item.name === "Products" && !userRights.includes("products")) return false;
+      if (item.name === "Users" && !userRights.includes("merchants")) return false;
+      if (item.name === "Reports" && !userRights.includes("reports")) return false;
+      if (item.name === "Settings" && !userRights.includes("settings")) return false;
+    }
+    
+    if (sessionUser.role === "USER") {
+      if (item.name === "Products" && !userRights.includes("inventory")) return false;
+      if (item.name === "Inventory" && !userRights.includes("inventory")) return false;
+      if (item.name === "Orders Assigned" && !userRights.includes("orders")) return false;
+      if (item.name === "Settings" && !userRights.includes("settings")) return false;
+    }
 
     return true;
   }).map(item => {
-    if (item.name === "Users") {
+    if (item.name === "Users" && sessionUser.role !== "PRODUCT_ADMIN") {
       const name = sessionUser.role === "DEVELOPER"
         ? "Create Super Admins"
-        : sessionUser.role === "SUPER_ADMIN"
-        ? "Create Product Admins"
-        : sessionUser.role === "PRODUCT_ADMIN"
-        ? "Create Shop Owners"
-        : "Users";
+        : "Create Product Admins";
       return { ...item, name };
     }
     return item;

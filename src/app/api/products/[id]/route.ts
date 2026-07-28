@@ -32,16 +32,16 @@ export async function PATCH(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN", "PRODUCT_ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { name, price, unit, category, image, inStock } = body;
+    const { name, price, unit, category, image, inStock, discount, quality, description, stock, images, shopId, applicationId } = body;
 
     const product = await prisma.storeProduct.update({
       where: { id },
-      data: { name, price, unit, category, image, inStock }
+      data: { name, price, unit, category, image, inStock, discount, quality, description, stock, images, shopId, applicationId }
     });
 
     return NextResponse.json(product);
@@ -59,7 +59,7 @@ export async function DELETE(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN", "PRODUCT_ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

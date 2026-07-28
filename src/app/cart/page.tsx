@@ -18,7 +18,7 @@ export default function CartPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     if (status === "unauthenticated") {
-      router.push("/?redirect=/cart");
+      router.push("/login?redirect=/cart");
     }
   }, [status, router]);
 

@@ -21,7 +21,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleAdd = () => {
     if (!session) {
-      router.push("/?redirect=/store");
+      router.push("/login?redirect=/");
       return;
     }
     addItem(product);
@@ -31,7 +31,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleIncrement = () => {
     if (!session) {
-      router.push("/?redirect=/store");
+      router.push("/login?redirect=/");
       return;
     }
     updateQuantity(product.id, quantity + 1);
