@@ -15,6 +15,7 @@ declare module "next-auth" {
       role: string;
       customerId?: string | null;
       organizationId?: string | null;
+      department?: string | null;
     };
     sessionId?: string | null;
   }
@@ -23,6 +24,7 @@ declare module "next-auth" {
     role: string;
     customerId?: string | null;
     organizationId?: string | null;
+    department?: string | null;
     sessionId?: string | null;
   }
 }
@@ -64,6 +66,7 @@ export const authOptions: NextAuthOptions = {
               role: devUser.role,
               customerId: devUser.customerId,
               organizationId: devUser.organizationId,
+              department: devUser.department,
               sessionId: newSessionId
             };
           }
@@ -171,6 +174,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           customerId: user.customerId,
           organizationId: user.organizationId,
+          department: user.department,
           sessionId: newSessionId
         };
       }
@@ -186,6 +190,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.customerId = user.customerId;
         token.organizationId = user.organizationId;
+        token.department = user.department;
         token.sessionId = user.sessionId;
       }
       return token;
@@ -196,15 +201,24 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.customerId = token.customerId as string | null;
         session.user.organizationId = token.organizationId as string | null;
+        session.user.department = token.department as string | null;
 
         // Verify that this session's token matches active session in DB (FORCE_LOGOUT check)
-        const active = await prisma.activeSession.findUnique({
-          where: { sessionId: token.sessionId as string }
-        });
+        let active = null;
+        try {
+          active = await prisma.activeSession.findUnique({
+            where: { sessionId: token.sessionId as string }
+          });
+        } catch (e) {
+          console.error("Failed to query active session on verification:", e);
+          // Fallback to active state if database is temporarily locked or busy to prevent login loop
+          active = { id: "fallback" };
+        }
         
         if (!active) {
-          // If active session has been overwritten or deleted, return empty session (forces logout)
-          return null as any;
+          // If active session has been overwritten or deleted, clear user to force logout without hanging
+          delete (session as any).user;
+          return session;
         }
 
         session.sessionId = token.sessionId as string;

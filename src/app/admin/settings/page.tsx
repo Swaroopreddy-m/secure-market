@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "DEVELOPER") {
+  if (!session || !["DEVELOPER", "SUPER_ADMIN"].includes(session.user.role)) {
     redirect("/");
   }
 
@@ -19,6 +19,11 @@ export default async function SettingsPage() {
   async function updateSettingAction(formData: FormData) {
     "use server";
     try {
+      const devSession = await getServerSession(authOptions);
+      if (!devSession || !["DEVELOPER", "SUPER_ADMIN"].includes(devSession.user.role)) {
+        throw new Error("Unauthorized");
+      }
+
       const keys = Array.from(formData.keys()).filter(k => !k.startsWith("$"));
       
       for (const key of keys) {
@@ -29,7 +34,6 @@ export default async function SettingsPage() {
         });
       }
 
-      const devSession = await getServerSession(authOptions);
       if (devSession?.user) {
         await prisma.auditLog.create({
           data: {

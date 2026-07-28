@@ -4,50 +4,35 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
 
-const saasProductSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  code: z.string().min(1, "Code is required"),
-  category: z.string().min(1, "Category is required"),
+const productCreateSchema = z.object({
+  name: z.string().min(1, "Product Name is required"),
+  code: z.string().min(1, "Product Code is required"),
+  category: z.string().default("Marketplace Portal"),
   description: z.string().optional(),
   version: z.string().default("1.0.0"),
   status: z.string().default("ACTIVE"),
-  owner: z.string().min(1, "Owner is required"),
-  environment: z.string().default("PRODUCTION"),
-  documentationUrl: z.string().url().optional().or(z.literal("")),
-  repositoryUrl: z.string().url().optional().or(z.literal("")),
-  releaseNotes: z.string().optional()
+  owner: z.string().default("Market Team"),
+  environment: z.string().default("PRODUCTION")
 });
-
-export async function GET() {
-  try {
-    const products = await prisma.product.findMany({
-      orderBy: { code: "asc" }
-    });
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("[SAAS_PRODUCTS_GET]", error);
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
-  }
-}
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
-    const validatedData = saasProductSchema.parse(body);
+    const validatedData = productCreateSchema.parse(body);
 
-    // Check code unique
-    const existing = await prisma.product.findUnique({
+    // Verify code uniqueness
+    const existingProduct = await prisma.product.findUnique({
       where: { code: validatedData.code }
     });
-
-    if (existing) {
-      return NextResponse.json({ error: "Product code already exists" }, { status: 400 });
+    
+    if (existingProduct) {
+      return NextResponse.json({ error: "Product Code already exists" }, { status: 400 });
     }
 
     const product = await prisma.product.create({
@@ -59,10 +44,7 @@ export async function POST(request: Request) {
         version: validatedData.version,
         status: validatedData.status,
         owner: validatedData.owner,
-        environment: validatedData.environment,
-        documentationUrl: validatedData.documentationUrl || null,
-        repositoryUrl: validatedData.repositoryUrl || null,
-        releaseNotes: validatedData.releaseNotes || null
+        environment: validatedData.environment
       }
     });
 
@@ -73,13 +55,13 @@ export async function POST(request: Request) {
         action: "CREATE",
         module: "PRODUCTS",
         status: "SUCCESS",
-        details: `Created SaaS Product ${product.code}: ${product.name}`
+        details: `Created SaaS Product ${product.name} (${product.code})`
       }
     });
 
     return NextResponse.json(product);
   } catch (error) {
-    console.error("[SAAS_PRODUCTS_POST]", error);
+    console.error("[SAAS_PRODUCT_POST]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }

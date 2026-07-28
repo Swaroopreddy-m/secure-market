@@ -61,6 +61,8 @@ export default function LoginPage() {
       });
       if (res?.error) {
         setLoginError(res.error);
+      } else {
+        window.location.reload();
       }
     } catch (err) {
       setLoginError("Failed to connect to authentication server.");
@@ -80,6 +82,8 @@ export default function LoginPage() {
       });
       if (res?.error) {
         setLoginError(res.error);
+      } else {
+        window.location.reload();
       }
     } catch (err) {
       setLoginError("Failed to connect to authentication server.");
@@ -88,7 +92,7 @@ export default function LoginPage() {
     }
   };
 
-  if (status === "loading" || status === "authenticated") {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center space-y-4">
@@ -211,7 +215,7 @@ export default function LoginPage() {
           </button>
           
           <button
-            onClick={() => handleQuickLogin("sarah_admin")}
+            onClick={() => handleQuickLogin("super_admin_market")}
             disabled={isSubmitting}
             className="p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-left transition-all hover:scale-102 flex items-center gap-1.5"
           >
@@ -220,7 +224,7 @@ export default function LoginPage() {
           </button>
           
           <button
-            onClick={() => handleQuickLogin("product_admin")}
+            onClick={() => handleQuickLogin("product_admin_market")}
             disabled={isSubmitting}
             className="p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-left transition-all hover:scale-102 flex items-center gap-1.5"
           >
@@ -229,7 +233,7 @@ export default function LoginPage() {
           </button>
           
           <button
-            onClick={() => handleQuickLogin("shop_owner")}
+            onClick={() => handleQuickLogin("user_market")}
             disabled={isSubmitting}
             className="col-span-2 p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 rounded-xl border dark:border-slate-800 text-center transition-all hover:scale-101 flex items-center justify-center gap-1.5"
           >

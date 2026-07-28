@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
-import { LogOut, Package, User, MapPin, ChevronRight, Clock, Loader2 } from "lucide-react";
+import { LogOut, Package, User, MapPin, ChevronRight, Clock, Loader2, Key, Mail, Phone, Home, Globe, Map } from "lucide-react";
 import Link from "next/link";
 
 interface AddressItem {
@@ -34,11 +34,37 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Auth form states
+  // Sign In form states
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sign Up / Register form states
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [regForm, setRegForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "India",
+    pincode: "",
+    password: ""
+  });
+  const [regError, setRegError] = useState<string | null>(null);
+
+  // Redirection Parameter logic
+  const [redirectUrl, setRedirectUrl] = useState("/store");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("redirect");
+      if (r) setRedirectUrl(r);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +79,7 @@ export default function ProfilePage() {
       if (res?.error) {
         setLoginError(res.error);
       } else {
-        window.location.reload();
+        window.location.href = redirectUrl;
       }
     } catch (err) {
       setLoginError("Failed to connect to authentication server.");
@@ -62,20 +88,38 @@ export default function ProfilePage() {
     }
   };
 
-  const handleDemoLogin = async () => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
-    setLoginError(null);
+    setRegError(null);
+
     try {
-      const res = await signIn("credentials", {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(regForm)
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Registration failed");
+      }
+
+      // Automatically sign in upon successful registration
+      const signinRes = await signIn("credentials", {
+        username: regForm.email,
+        password: regForm.password,
         redirect: false
       });
-      if (res?.error) {
-        setLoginError(res.error);
+
+      if (signinRes?.error) {
+        setRegError("Account created, but automatic login failed. Please sign in manually.");
+        setIsRegisterMode(false);
       } else {
-        window.location.reload();
+        window.location.href = redirectUrl;
       }
-    } catch (err) {
-      setLoginError("Failed to connect to authentication server.");
+    } catch (err: any) {
+      setRegError(err.message || "Failed to register account.");
     } finally {
       setIsSubmitting(false);
     }
@@ -83,14 +127,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      // setIsLoading is true by default, no need to set it again synchronously
-      // which triggers cascading renders.
       Promise.all([
         fetch("/api/orders").then(res => res.json()),
         fetch("/api/user/addresses").then(res => res.json())
       ]).then(([ordersData, addressesData]) => {
-        setOrders(ordersData);
-        setAddresses(addressesData);
+        setOrders(Array.isArray(ordersData) ? ordersData : []);
+        setAddresses(Array.isArray(addressesData) ? addressesData : []);
         setIsLoading(false);
       }).catch(err => {
         console.error("Failed to load profile data", err);
@@ -107,78 +149,234 @@ export default function ProfilePage() {
     );
   }
 
+  // Unauthenticated: Show Login or Register Form
   if (status === "unauthenticated" || !session) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
-          <User className="w-8 h-8 text-muted-foreground" />
+      <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-[70vh]">
+        <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl flex items-center justify-center mb-6 text-indigo-650">
+          <User className="w-7 h-7" />
         </div>
-        <h1 className="text-2xl font-bold font-inter tracking-tight mb-2">Account Login</h1>
-        <p className="text-muted-foreground mb-8 text-center text-xs max-w-sm">
-          Sign in to Secure Market to track orders, manage products, configure SaaS tenants, or access your profile.
-        </p>
-        
-        <form onSubmit={handleLogin} className="w-full max-w-xs space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Username or Email</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. devroot"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-background border border-input rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
-            />
-          </div>
-          
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Password</label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-background border border-input rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-xs font-semibold"
-            />
-          </div>
 
-          {loginError && (
-            <div className="bg-red-50 border border-red-100 text-red-650 p-3 rounded-2xl text-[11px] font-bold text-center">
-              {loginError === "ACCOUNT_LOCKED" 
-                ? "Account locked due to excessive failed attempts." 
-                : loginError === "CONCURRENT_SESSION_ACTIVE"
-                ? "Concurrent session active. Terminating other sessions or blocked."
-                : "Invalid credentials. Please verify details."}
+        <div className="text-center max-w-sm mb-8 space-y-2">
+          <h1 className="text-2xl font-black font-inter tracking-tight">
+            {isRegisterMode ? "Create Customer Account" : "Secure Market Portal"}
+          </h1>
+          <p className="text-xs text-slate-500 leading-normal">
+            {isRegisterMode 
+              ? "Register to place orders, save delivery details, and browse custom categories." 
+              : "Sign in to track orders, manage products, or access your administrative dashboard."}
+          </p>
+        </div>
+
+        {isRegisterMode ? (
+          /* REGISTRATION FORM */
+          <form onSubmit={handleRegisterSubmit} className="w-full max-w-md bg-white dark:bg-slate-900 border p-8 rounded-3xl space-y-4 shadow-sm animate-in fade-in duration-300">
+            {regError && (
+              <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-650 rounded-2xl text-xs font-bold text-center">
+                {regError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe"
+                  value={regForm.name}
+                  onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Mobile Number</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. +91 98765 43210"
+                  value={regForm.phone}
+                  onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-foreground text-background py-2.5 rounded-full font-bold text-xs shadow-md hover:bg-foreground/90 transition-all flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
-          </button>
-          
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-muted"></div>
-            <span className="flex-shrink mx-3 text-[10px] font-bold text-muted-foreground uppercase">or</span>
-            <div className="flex-grow border-t border-muted"></div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="john.doe@local.com"
+                  value={regForm.email}
+                  onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
 
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={isSubmitting}
-            className="w-full bg-muted text-muted-foreground py-2.5 rounded-full font-bold text-xs hover:bg-muted/80 transition-all flex items-center justify-center gap-2"
-          >
-            <User className="w-4 h-4" /> Try Developer Demo Account
-          </button>
-        </form>
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={regForm.password}
+                  onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Street Address</label>
+              <input
+                type="text"
+                required
+                placeholder="Apartment, building, street, area name"
+                value={regForm.address}
+                onChange={(e) => setRegForm({ ...regForm, address: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-4 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">City</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Mumbai"
+                  value={regForm.city}
+                  onChange={(e) => setRegForm({ ...regForm, city: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">State</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Maharashtra"
+                  value={regForm.state}
+                  onChange={(e) => setRegForm({ ...regForm, state: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Country</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="India"
+                  value={regForm.country}
+                  onChange={(e) => setRegForm({ ...regForm, country: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pincode</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="400001"
+                  value={regForm.pincode}
+                  onChange={(e) => setRegForm({ ...regForm, pincode: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border rounded-xl py-2 px-3.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-indigo-650 hover:bg-indigo-700 text-white py-3 rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Register & Sign In"}
+            </button>
+
+            <p className="text-center text-[11px] font-semibold text-slate-500 pt-2">
+              Already have an account?{" "}
+              <button 
+                type="button" 
+                onClick={() => setIsRegisterMode(false)}
+                className="text-indigo-650 hover:underline font-bold"
+              >
+                Log In
+              </button>
+            </p>
+          </form>
+        ) : (
+          /* LOGIN FORM */
+          <form onSubmit={handleLogin} className="w-full max-w-xs space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Username or Email</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. devroot"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-slate-50 border rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Password</label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border rounded-2xl py-2.5 px-4 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+              />
+            </div>
+
+            {loginError && (
+              <div className="bg-red-50 border border-red-100 text-red-650 p-3 rounded-2xl text-[11px] font-bold text-center animate-in fade-in">
+                {loginError === "ACCOUNT_LOCKED" 
+                  ? "Account locked due to excessive failed attempts." 
+                  : loginError === "CONCURRENT_SESSION_ACTIVE"
+                  ? "Concurrent session active. Terminating other sessions or blocked."
+                  : "Invalid credentials. Please verify details."}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-indigo-650 text-white py-2.5 rounded-full font-bold text-xs shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
+            </button>
+
+            <p className="text-center text-[11px] font-semibold text-slate-500 pt-2">
+              New customer?{" "}
+              <button 
+                type="button" 
+                onClick={() => setIsRegisterMode(true)}
+                className="text-indigo-650 hover:underline font-bold"
+              >
+                Create Account
+              </button>
+            </p>
+          </form>
+        )}
       </div>
     );
   }
+
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
+    window.location.href = "/";
+  };
 
   return (
     <div className="container mx-auto px-4 py-12 md:py-16">
@@ -189,8 +387,8 @@ export default function ProfilePage() {
             <p className="text-muted-foreground">Manage your orders and account settings.</p>
           </div>
           <button 
-            onClick={() => signOut()}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-full transition-colors w-fit border border-red-100"
+            onClick={handleSignOut}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold text-red-650 bg-red-50 hover:bg-red-100 rounded-full transition-colors w-fit border border-red-100"
           >
             <LogOut className="w-4 h-4" /> Sign Out
           </button>
@@ -257,7 +455,7 @@ export default function ProfilePage() {
                   <div className="p-12 text-center text-muted-foreground bg-muted/20">
                     <p className="text-lg mb-2">You haven&apos;t placed any orders yet.</p>
                     <p className="text-sm mb-6">Explore our fresh products and start shopping!</p>
-                    <Link href="/" className="inline-block bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all">
+                    <Link href="/store" className="inline-block bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition-all">
                       Browse Shop
                     </Link>
                   </div>

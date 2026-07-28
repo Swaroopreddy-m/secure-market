@@ -10,8 +10,8 @@ export default async function AdminLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  // Allow access to admin portal for DEVELOPER, SUPER_ADMIN, and legacy ADMIN roles
-  if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+  // Allow access to admin portal for DEVELOPER, SUPER_ADMIN, PRODUCT_ADMIN, USER, and legacy ADMIN roles
+  if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN", "USER", "ADMIN"].includes(session.user.role)) {
     redirect("/");
   }
 
@@ -21,7 +21,8 @@ export default async function AdminLayout({
     name: session.user.name || "System User",
     email: session.user.email || "",
     image: session.user.image || null,
-    role: session.user.role
+    role: session.user.role,
+    department: session.user.department || ""
   };
 
   return (

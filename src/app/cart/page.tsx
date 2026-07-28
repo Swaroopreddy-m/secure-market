@@ -3,19 +3,32 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useCartStore } from "@/lib/store";
-import { Trash2, Plus, Minus, ArrowRight, ShoppingBag } from "lucide-react";
+import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, Loader2 } from "lucide-react";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getCartTotal } = useCartStore();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-  }, []);
+    if (status === "unauthenticated") {
+      router.push("/?redirect=/cart");
+    }
+  }, [status, router]);
 
-  if (!mounted) return null;
+  if (!mounted || status === "loading") {
+    return (
+      <div className="container mx-auto px-4 py-24 flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const subtotal = getCartTotal();
   const delivery = subtotal > 500 ? 0 : 50;

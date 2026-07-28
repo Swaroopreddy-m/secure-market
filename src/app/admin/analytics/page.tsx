@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
   ];
 
   const mockCustomerDistribution = [
-    { label: "School", value: 15, color: "#4f46e5" },
+    { label: "Corporate", value: 15, color: "#4f46e5" },
     { label: "Company", value: 10, color: "#10b981" },
     { label: "Bank", value: 8, color: "#f59e0b" },
     { label: "Retail", value: 12, color: "#ec4899" }

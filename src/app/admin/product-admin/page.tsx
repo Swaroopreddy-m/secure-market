@@ -2,7 +2,8 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { ShoppingBag, Tag, Cpu, ClipboardList, Plus, FileText, CheckCircle } from "lucide-react";
+import { ShoppingBag, Tag, Cpu } from "lucide-react";
+import ProductAdminTabs from "@/components/admin/ProductAdminTabs";
 
 export default async function ProductAdminDashboard() {
   const session = await getServerSession(authOptions);
@@ -11,9 +12,22 @@ export default async function ProductAdminDashboard() {
     redirect("/");
   }
 
-  const products = await prisma.product.findMany({
-    orderBy: { category: "asc" }
-  });
+  // Fetch initial collections
+  const [products, merchants, customers, applications] = await Promise.all([
+    prisma.product.findMany({
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.user.findMany({
+      where: { role: "USER" },
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.customer.findMany({
+      select: { id: true, companyName: true, customerId: true }
+    }),
+    prisma.application.findMany({
+      orderBy: { createdAt: "desc" }
+    })
+  ]);
 
   const categoriesCount = new Set(products.map(p => p.category)).size;
   const productionCount = products.filter(p => p.environment === "PRODUCTION").length;
@@ -21,14 +35,9 @@ export default async function ProductAdminDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Product Catalog Admin</h2>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Manage SaaS product tiers, catalog specifications, and documentation links.</p>
-        </div>
-        <button className="flex items-center gap-1.5 px-5 py-3 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-lg shadow-indigo-650/20 active:scale-95 transition-all">
-          <Plus className="w-4 h-4" /> Add Product Offering
-        </button>
+      <div>
+        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Product Catalog Dashboard</h2>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Manage SaaS product tiers, catalog specifications, and merchant accounts.</p>
       </div>
 
       {/* Widgets Grid */}
@@ -48,8 +57,8 @@ export default async function ProductAdminDashboard() {
             <Tag className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Categories</p>
-            <p className="text-xl font-black text-slate-850 dark:text-slate-100 mt-1">{categoriesCount} Categories</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Merchants/Shops</p>
+            <p className="text-xl font-black text-slate-850 dark:text-slate-100 mt-1">{merchants.length} Active</p>
           </div>
         </div>
 
@@ -64,56 +73,13 @@ export default async function ProductAdminDashboard() {
         </div>
       </div>
 
-      {/* Catalog table */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800/50">
-          <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100">Product Offerings Catalog</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/50">
-                <th className="p-4 px-6">Product</th>
-                <th className="p-4 px-6">Category</th>
-                <th className="p-4 px-6">Environment</th>
-                <th className="p-4 px-6">Team Owner</th>
-                <th className="p-4 px-6 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
-              {products.map((prod) => (
-                <tr key={prod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
-                  <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
-                    <div>{prod.name}</div>
-                    <div className="text-[9px] text-slate-400 font-mono font-medium pt-0.5">{prod.code} • v{prod.version}</div>
-                  </td>
-                  <td className="p-4 px-6 font-semibold text-slate-655 dark:text-slate-400">{prod.category}</td>
-                  <td className="p-4 px-6">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                      prod.environment === "PRODUCTION"
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
-                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                    }`}>
-                      {prod.environment}
-                    </span>
-                  </td>
-                  <td className="p-4 px-6 text-slate-500 dark:text-slate-500 font-medium">{prod.owner}</td>
-                  <td className="p-4 px-6 text-right">
-                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 flex items-center gap-1 w-fit ml-auto">
-                      <CheckCircle className="w-3 h-3" /> {prod.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">No SaaS products found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Tabs Switcher and Content */}
+      <ProductAdminTabs
+        initialProducts={products}
+        initialMerchants={merchants}
+        allCustomers={customers}
+        initialApplications={applications}
+      />
     </div>
   );
 }

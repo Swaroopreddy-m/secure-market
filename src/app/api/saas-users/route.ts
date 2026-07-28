@@ -26,12 +26,26 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const validatedData = userCreateSchema.parse(body);
+
+    // Enforce creation hierarchy
+    const creatorRole = session.user.role;
+    const targetRole = validatedData.role;
+
+    if (creatorRole === "DEVELOPER" && targetRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Developer can only create Super Admin users." }, { status: 403 });
+    }
+    if (creatorRole === "SUPER_ADMIN" && !["PRODUCT_ADMIN", "USER"].includes(targetRole)) {
+      return NextResponse.json({ error: "Super Admin can only create Product Admin or Market User accounts." }, { status: 403 });
+    }
+    if (creatorRole === "PRODUCT_ADMIN" && targetRole !== "USER") {
+      return NextResponse.json({ error: "Product Admin can only create User (Shop) accounts." }, { status: 403 });
+    }
 
     // Verify username and email uniqueness
     const existingUsername = await prisma.user.findUnique({

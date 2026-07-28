@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 export default async function NewUserPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+  if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN", "ADMIN"].includes(session.user.role)) {
     redirect("/");
   }
 

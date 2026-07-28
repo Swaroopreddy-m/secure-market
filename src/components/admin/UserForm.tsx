@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Save, Loader2, AlertCircle, ShoppingBag, Building2 } from "lucide-react";
 
 interface UserFormProps {
@@ -29,8 +30,14 @@ export default function UserForm({
   allCustomers
 }: UserFormProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const creatorRole = session?.user?.role || "";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedRights, setSelectedRights] = useState<string[]>(
+    initialData?.department ? initialData.department.split(",").map(s => s.trim()).filter(Boolean) : []
+  );
 
   const [formData, setFormData] = useState({
     employeeId: initialData?.employeeId || "",
@@ -43,6 +50,46 @@ export default function UserForm({
     status: initialData?.status || "ACTIVE",
     productIds: initialData?.assignedProducts.map(p => p.id) || [] as string[],
     customerIds: initialData?.assignedCustomers.map(c => c.id) || [] as string[]
+  });
+
+  // Sync selectedRights to department string field
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, department: selectedRights.join(",") }));
+  }, [selectedRights]);
+
+  // Set default access rights when role is updated on a new form
+  useEffect(() => {
+    if (!initialData) {
+      if (formData.role === "SUPER_ADMIN") {
+        setSelectedRights(["customers", "users", "reports", "settings"]);
+      } else if (formData.role === "PRODUCT_ADMIN") {
+        setSelectedRights(["product-admin", "merchant-accounts"]);
+      } else if (formData.role === "USER") {
+        setSelectedRights(["user-dashboard", "inventory", "orders"]);
+      } else {
+        setSelectedRights([]);
+      }
+    }
+  }, [formData.role, initialData]);
+
+  // Automatically set default target role based on creation hierarchy
+  useEffect(() => {
+    if (!initialData && creatorRole) {
+      if (creatorRole === "DEVELOPER") {
+        setFormData(prev => ({ ...prev, role: "SUPER_ADMIN" }));
+      } else if (creatorRole === "SUPER_ADMIN") {
+        setFormData(prev => ({ ...prev, role: "PRODUCT_ADMIN" }));
+      } else if (creatorRole === "PRODUCT_ADMIN") {
+        setFormData(prev => ({ ...prev, role: "USER" }));
+      }
+    }
+  }, [creatorRole, initialData]);
+
+  const filteredRoles = allRoles.filter((r) => {
+    if (creatorRole === "DEVELOPER") return r.name === "SUPER_ADMIN";
+    if (creatorRole === "SUPER_ADMIN") return r.name === "PRODUCT_ADMIN" || r.name === "USER";
+    if (creatorRole === "PRODUCT_ADMIN") return r.name === "USER";
+    return true; // Fallback for Developer/Super Admin editing
   });
 
   const handleProductCheckbox = (productId: string, checked: boolean) => {
@@ -174,22 +221,73 @@ export default function UserForm({
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold appearance-none"
             >
-              {allRoles.map((r) => (
-                <option key={r.id} value={r.name}>{r.name}</option>
+              {filteredRoles.map((r) => (
+                <option key={r.id} value={r.name}>{r.name.replace("_", " ")}</option>
               ))}
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Department</label>
-            <input
-              type="text"
-              placeholder="e.g. Engineering"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold"
-            />
-          </div>
+
+          {/* Access Rights options rendered instead of raw department input */}
+          {(() => {
+            const rightsOptions = formData.role === "SUPER_ADMIN" ? [
+              { label: "Customers Tab", value: "customers", desc: "Access the Customers listing and creation page" },
+              { label: "Create Product Admins Tab", value: "users", desc: "Access the User Management list to create Product Admins" },
+              { label: "Reports Tab", value: "reports", desc: "Access business reports and audit logs" },
+              { label: "Settings Tab", value: "settings", desc: "Access system-wide configurations and toggles" }
+            ] : formData.role === "PRODUCT_ADMIN" ? [
+              { label: "SaaS Products Catalog Tab", value: "product-admin", desc: "Access the SaaS products catalog tier list and add offerings" },
+              { label: "Merchant Accounts Tab", value: "merchant-accounts", desc: "Access the registration page and list of shop merchants" }
+            ] : formData.role === "USER" ? [
+              { label: "Shop Dashboard Tab", value: "user-dashboard", desc: "Access overview sales metrics widgets" },
+              { label: "Inventory Management Tab", value: "inventory", desc: "Add products, toggle inStock status, edit prices and images" },
+              { label: "Order Fulfillment Tab", value: "orders", desc: "View and fulfill incoming customer storefront orders" }
+            ] : [];
+
+            if (rightsOptions.length === 0) return null;
+
+            return (
+              <div className="col-span-1 md:col-span-2 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                <h4 className="font-extrabold text-xs text-slate-850 dark:text-slate-100 flex items-center gap-1.5">
+                  Access Rights (Tab Permissions)
+                </h4>
+                <p className="text-[10px] text-slate-450 font-medium pb-2">Select which dashboard tabs and menus this user is authorized to view and interact with.</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {rightsOptions.map((opt) => {
+                    const isChecked = selectedRights.includes(opt.value);
+                    return (
+                      <label 
+                        key={opt.value}
+                        className={`flex items-start gap-3 p-4 border rounded-2xl cursor-pointer transition-all ${
+                          isChecked 
+                            ? "border-indigo-500 bg-indigo-50/10 dark:bg-indigo-950/10 ring-1 ring-indigo-500" 
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRights(prev => [...prev, opt.value]);
+                            } else {
+                              setSelectedRights(prev => prev.filter(v => v !== opt.value));
+                            }
+                          }}
+                          className="mt-1 rounded border-slate-350 text-indigo-655 focus:ring-indigo-500"
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{opt.label}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-normal">{opt.desc}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Status</label>

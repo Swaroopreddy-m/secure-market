@@ -248,7 +248,7 @@ const SAAS_PRODUCTS: SeedSaaSProduct[] = [
   { name: "Mobile Banking", code: "MBK-01", category: "Mobile Banking", description: "Retail and commercial mobile banking API suite", owner: "Banking Team", environment: "PRODUCTION" },
   { name: "Internet Banking", code: "IBK-01", category: "Internet Banking", description: "Corporate and consumer online banking site", owner: "Banking Team", environment: "PRODUCTION" },
   { name: "Loans", code: "LON-01", category: "Loans", description: "Loan origination and credit underwriting system", owner: "Credit Team", environment: "STAGING" },
-  { name: "School ERP", code: "ERP-01", category: "School ERP", description: "All-in-one School Administration and ERP Portal", owner: "EdTech Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/school-erp" },
+  { name: "Marketplace Portal", code: "MKT-01", category: "Marketplace Portal", description: "All-in-one Multi-merchant E-Commerce SaaS Marketplace", owner: "Market Team", environment: "PRODUCTION", documentationUrl: "https://docs.securemarket.local/marketplace" },
   { name: "HRMS", code: "HRM-01", category: "HRMS", description: "Human Resource Management System", owner: "Ops Team", environment: "PRODUCTION" },
   { name: "CRM", code: "CRM-01", category: "CRM", description: "Customer Relationship Management tool", owner: "Sales Team", environment: "PRODUCTION" },
   { name: "CMS", code: "CMS-01", category: "CMS", description: "Content Management System", owner: "Marketing Team", environment: "PRODUCTION" },
@@ -416,45 +416,55 @@ async function main() {
       email: "developer@securemarket.local",
       role: "DEVELOPER",
       roleId: dbRoles["DEVELOPER"].id,
-      department: "Engineering",
+      department: "all",
       passwordHash: hashedPass
     },
     {
       id: "superadmin-user-1",
       employeeId: "SAD-001",
-      username: "sarah_admin",
+      username: "super_admin_market",
       name: "Sarah Admin",
       email: "sarah.admin@securemarket.local",
       role: "SUPER_ADMIN",
       roleId: dbRoles["SUPER_ADMIN"].id,
-      department: "Operations",
+      department: "customers,users,reports,settings",
       passwordHash: hashedPass
     },
     {
       id: "productadmin-user-1",
       employeeId: "PAD-001",
-      username: "product_admin",
+      username: "product_admin_market",
       name: "Product Admin",
       email: "product.admin@securemarket.local",
       role: "PRODUCT_ADMIN",
       roleId: dbRoles["PRODUCT_ADMIN"].id,
-      department: "Product Management",
+      department: "product-admin,merchant-accounts",
       passwordHash: hashedPass
     },
     {
       id: "user-shop-1",
       employeeId: "USR-001",
-      username: "shop_owner",
+      username: "user_market",
       name: "Shop Owner",
       email: "owner@securemarket.local",
       role: "USER",
       roleId: dbRoles["USER"].id,
       customerId: defaultCust.id,
       organizationId: defaultOrg.id,
-      department: "Shops",
+      department: "user-dashboard,inventory,orders",
       passwordHash: hashedPass
     }
   ]
+
+  // Clean existing seeded users to prevent unique constraint conflicts on usernames
+  await prisma.user.deleteMany({
+    where: {
+      OR: [
+        { id: { in: ["developer-user-1", "superadmin-user-1", "productadmin-user-1", "user-shop-1"] } },
+        { username: { in: ["devroot", "super_admin_market", "product_admin_market", "user_market"] } }
+      ]
+    }
+  });
 
   for (const u of usersToSeed) {
     await prisma.user.upsert({
@@ -494,18 +504,18 @@ async function main() {
     create: {
       id: "sub-1",
       customerId: defaultCust.id,
-      productId: dbProducts["ERP-01"].id,
+      productId: dbProducts["MKT-01"].id,
       status: "ACTIVE"
     }
   })
 
   await prisma.license.upsert({
-    where: { key: "OAKRIDGE-ERP-LICENSE-KEY-1" },
+    where: { key: "MARKETPLACE-LICENSE-KEY-1" },
     update: {},
     create: {
-      key: "OAKRIDGE-ERP-LICENSE-KEY-1",
+      key: "MARKETPLACE-LICENSE-KEY-1",
       customerId: defaultCust.id,
-      productId: dbProducts["ERP-01"].id,
+      productId: dbProducts["MKT-01"].id,
       status: "ACTIVE"
     }
   })

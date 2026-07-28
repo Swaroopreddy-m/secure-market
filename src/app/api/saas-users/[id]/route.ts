@@ -30,7 +30,7 @@ export async function PATCH(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN", "ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -47,6 +47,22 @@ export async function PATCH(
 
     if (!existing) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Enforce creation hierarchy on updates
+    const creatorRole = session.user.role;
+    const targetRole = validatedData.role;
+
+    if (targetRole && targetRole !== existing.role) {
+      if (creatorRole === "DEVELOPER" && targetRole !== "SUPER_ADMIN") {
+        return NextResponse.json({ error: "Developer can only assign Super Admin roles." }, { status: 403 });
+      }
+      if (creatorRole === "SUPER_ADMIN" && !["PRODUCT_ADMIN", "USER"].includes(targetRole)) {
+        return NextResponse.json({ error: "Super Admin can only assign Product Admin or Market User roles." }, { status: 403 });
+      }
+      if (creatorRole === "PRODUCT_ADMIN" && targetRole !== "USER") {
+        return NextResponse.json({ error: "Product Admin can only assign User (Shop) roles." }, { status: 403 });
+      }
     }
 
     // Unique checks
@@ -152,7 +168,7 @@ export async function DELETE(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session || !["DEVELOPER", "SUPER_ADMIN"].includes(session.user.role)) {
+    if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -167,6 +183,20 @@ export async function DELETE(
     // Do not delete oneself
     if (user.id === session.user.id) {
       return NextResponse.json({ error: "Cannot delete your own active session account" }, { status: 400 });
+    }
+
+    // Enforce deletion hierarchy
+    const creatorRole = session.user.role;
+    const targetRole = user.role;
+
+    if (creatorRole === "DEVELOPER" && targetRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Developer can only delete Super Admin users." }, { status: 403 });
+    }
+    if (creatorRole === "SUPER_ADMIN" && targetRole !== "PRODUCT_ADMIN") {
+      return NextResponse.json({ error: "Super Admin can only delete Product Admin users." }, { status: 403 });
+    }
+    if (creatorRole === "PRODUCT_ADMIN" && targetRole !== "USER") {
+      return NextResponse.json({ error: "Product Admin can only delete User (Shop) accounts." }, { status: 403 });
     }
 
     await prisma.user.delete({

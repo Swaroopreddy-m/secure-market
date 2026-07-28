@@ -13,7 +13,7 @@ export default async function EditUserPage({
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
+  if (!session || !["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN", "ADMIN"].includes(session.user.role)) {
     redirect("/");
   }
 

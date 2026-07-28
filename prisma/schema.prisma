@@ -61,6 +61,8 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   customerId     String?
   customer       Customer?     @relation("CustomerUsers", fields: [customerId], references: [id])
+  applicationId  String?
+  application    Application?  @relation(fields: [applicationId], references: [id])
 
   // RBAC Role relation
   roleId         String?
@@ -119,6 +121,8 @@ model Customer {
   updatedAt      DateTime       @updatedAt
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id])
+  applicationId  String?
+  application    Application?   @relation(fields: [applicationId], references: [id])
   subscriptions  Subscription[]
   licenses       License[]
   users          User[]         @relation("CustomerUsers")
@@ -179,7 +183,7 @@ model License {
 
 model Role {
   id          String           @id @default(cuid())
-  name        String           @unique // DEVELOPER, SUPER_ADMIN, CUSTOMER_ADMIN, SCHOOL_ADMIN, TEACHER, STUDENT
+  name        String           @unique // DEVELOPER, SUPER_ADMIN, PRODUCT_ADMIN, USER
   description String?
   users       User[]
   permissions RolePermission[]
@@ -269,16 +273,24 @@ model Address {
 }
 
 model StoreProduct {
-  id          String      @id @default(cuid())
-  name        String
-  price       Float
-  unit        String
-  category    String
-  image       String
-  inStock     Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  orderItems  OrderItem[]
+  id            String      @id @default(cuid())
+  name          String
+  price         Float
+  unit          String
+  category      String
+  image         String
+  inStock       Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  orderItems    OrderItem[]
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id])
+
+  discount      Float       @default(0.0)
+  quality       String      @default("Premium")
+  description   String?     @default("")
+  stock         Int         @default(100)
+  images        String      @default("[]") // JSON stringified array of images
 }
 
 model Order {
@@ -293,6 +305,8 @@ model Order {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   items           OrderItem[]
+  applicationId   String?
+  application     Application? @relation(fields: [applicationId], references: [id])
 }
 
 model OrderItem {
@@ -303,4 +317,19 @@ model OrderItem {
   product   StoreProduct @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+}
+
+model Application {
+  id          String         @id @default(cuid())
+  name        String
+  logo        String         @default("/images/apps/default.png")
+  description String?
+  settings    String?        // JSON string
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  users       User[]
+  customers   Customer[]
+  products    StoreProduct[]
+  orders      Order[]
 }

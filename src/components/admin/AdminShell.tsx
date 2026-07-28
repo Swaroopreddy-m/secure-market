@@ -25,7 +25,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
   { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Shop Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
-  { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["DEVELOPER", "SUPER_ADMIN", "PRODUCT_ADMIN"] },
+  { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Customers", href: "/admin/customers", icon: Building2, allowedRoles: ["DEVELOPER", "SUPER_ADMIN"] },
   { name: "Organizations", href: "/admin/organizations", icon: ShieldCheck, allowedRoles: ["DEVELOPER"] },
   { name: "Users", href: "/admin/users", icon: Users, allowedRoles: ["DEVELOPER", "SUPER_ADMIN", "ADMIN"] },
@@ -50,7 +50,7 @@ export default function AdminShell({
   sessionUser
 }: {
   children: React.ReactNode;
-  sessionUser: { id: string; name: string | null; email: string | null; image: string | null; role: string };
+  sessionUser: { id: string; name: string | null; email: string | null; image: string | null; role: string; department: string };
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -74,8 +74,41 @@ export default function AdminShell({
     { id: "3", title: "Database Backup Completed", desc: "Automatic local snapshot completed successfully.", time: "3 hours ago", read: true, type: "success" }
   ]);
 
-  // Filter items by role
-  const allowedNavItems = ALL_NAV_ITEMS.filter(item => item.allowedRoles.includes(sessionUser.role));
+  // Filter items by role and granular access rights (tabs)
+  const userRights = sessionUser.department
+    ? sessionUser.department.split(",").map((s: string) => s.trim().toLowerCase())
+    : [];
+
+  const allowedNavItems = ALL_NAV_ITEMS.filter(item => {
+    // 1. Check role access first
+    if (!item.allowedRoles.includes(sessionUser.role)) return false;
+
+    // 2. Developer has unrestricted access
+    if (sessionUser.role === "DEVELOPER") return true;
+
+    // 3. Filter by granular Access Rights (Tabs) stored in department field
+    if (item.name === "Customers" && !userRights.includes("customers")) return false;
+    if (item.name === "Users" && !userRights.includes("users")) return false;
+    if (item.name === "Reports" && !userRights.includes("reports")) return false;
+    if (item.name === "Settings" && !userRights.includes("settings")) return false;
+    if (item.name === "Products (SaaS)" && !userRights.includes("products")) return false;
+    if (item.name === "Product Dashboard" && !userRights.includes("product-admin")) return false;
+    if (item.name === "Shop Dashboard" && !userRights.includes("user-dashboard")) return false;
+
+    return true;
+  }).map(item => {
+    if (item.name === "Users") {
+      const name = sessionUser.role === "DEVELOPER"
+        ? "Create Super Admins"
+        : sessionUser.role === "SUPER_ADMIN"
+        ? "Create Product Admins"
+        : sessionUser.role === "PRODUCT_ADMIN"
+        ? "Create Shop Owners"
+        : "Users";
+      return { ...item, name };
+    }
+    return item;
+  });
 
   // Initialize Theme and Compact Mode from localStorage
   useEffect(() => {
@@ -149,6 +182,17 @@ export default function AdminShell({
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const dashboardHome = sessionUser.role === "PRODUCT_ADMIN"
+    ? "/admin/product-admin"
+    : sessionUser.role === "USER"
+    ? "/admin/user"
+    : "/admin";
+
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
+    window.location.href = "/";
+  };
+
   return (
     <div className={`flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300 ${
       isCompactMode ? "text-xs px-1" : "text-sm"
@@ -162,7 +206,7 @@ export default function AdminShell({
       >
         {/* Sidebar Header */}
         <div className={`p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between`}>
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href={dashboardHome} className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/30">
               S
             </div>
@@ -282,14 +326,14 @@ export default function AdminShell({
 
               <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
                 <Link
-                  href="/"
+                  href="/store"
                   className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold"
                 >
                   <ArrowLeft className="w-5 h-5" />
                   Back to Store
                 </Link>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={handleSignOut}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 font-bold text-left"
                 >
                   <LogOut className="w-5 h-5" />
@@ -475,7 +519,7 @@ export default function AdminShell({
                           <UserIcon className="w-4 h-4" /> My Profile
                         </Link>
                         <button
-                          onClick={() => signOut({ callbackUrl: "/" })}
+                          onClick={handleSignOut}
                           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-all text-left"
                         >
                           <LogOut className="w-4 h-4" /> Sign Out

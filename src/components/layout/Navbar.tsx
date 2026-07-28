@@ -45,7 +45,7 @@ export default function Navbar() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/store" className="flex items-center gap-2 group">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center text-white font-bold text-xl group-hover:scale-110 transition-transform">
                 S
               </div>
@@ -120,7 +120,7 @@ export default function Navbar() {
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
           <div className="absolute top-0 left-0 w-3/4 h-full bg-card shadow-2xl p-6 animate-in slide-in-from-left duration-300">
             <div className="flex items-center justify-between mb-8">
-              <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2">
+              <Link href="/store" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
                   S
                 </div>

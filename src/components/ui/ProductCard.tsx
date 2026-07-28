@@ -6,17 +6,36 @@ import { Product } from "@/lib/mockData";
 import { useCartStore } from "@/lib/store";
 import { motion } from "framer-motion";
 
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
 interface ProductCardProps {
   product: Product;
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
   const { addItem, updateQuantity, getItemQuantity } = useCartStore();
   const quantity = getItemQuantity(product.id);
 
-  const handleAdd = () => addItem(product);
+  const handleAdd = () => {
+    if (!session) {
+      router.push("/?redirect=/store");
+      return;
+    }
+    addItem(product);
+  };
+
   const handleRemove = () => updateQuantity(product.id, quantity - 1);
-  const handleIncrement = () => updateQuantity(product.id, quantity + 1);
+
+  const handleIncrement = () => {
+    if (!session) {
+      router.push("/?redirect=/store");
+      return;
+    }
+    updateQuantity(product.id, quantity + 1);
+  };
 
   return (
     <motion.div 

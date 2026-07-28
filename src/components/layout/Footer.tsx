@@ -6,7 +6,7 @@ export default function Footer() {
     <footer className="bg-white dark:bg-card border-t py-12 mt-auto">
       <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="space-y-4">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/store" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
               S
             </div>
@@ -20,10 +20,10 @@ export default function Footer() {
         <div>
           <h3 className="font-semibold mb-4 text-foreground">Categories</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><Link href="/?category=Fresh Vegetables" className="hover:text-primary transition-colors">Fresh Vegetables</Link></li>
-            <li><Link href="/?category=Leafy Vegetables" className="hover:text-primary transition-colors">Leafy Vegetables</Link></li>
-            <li><Link href="/?category=Groceries" className="hover:text-primary transition-colors">Groceries</Link></li>
-            <li><Link href="/?category=Fruits" className="hover:text-primary transition-colors">Fresh Fruits</Link></li>
+            <li><Link href="/store?category=Fresh Vegetables" className="hover:text-primary transition-colors">Fresh Vegetables</Link></li>
+            <li><Link href="/store?category=Leafy Vegetables" className="hover:text-primary transition-colors">Leafy Vegetables</Link></li>
+            <li><Link href="/store?category=Groceries" className="hover:text-primary transition-colors">Groceries</Link></li>
+            <li><Link href="/store?category=Fruits" className="hover:text-primary transition-colors">Fresh Fruits</Link></li>
           </ul>
         </div>
 

@@ -23,7 +23,7 @@ interface CustomerFormProps {
 }
 
 const CUSTOMER_TYPES = [
-  "School", "Company", "Bank", "Retail", "Hospital", "Government", "Startup", "Enterprise", "Institution"
+  "Corporate", "Company", "Bank", "Retail", "Hospital", "Government", "Startup", "Enterprise", "Institution"
 ];
 
 const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED"];
@@ -99,11 +99,11 @@ export default function CustomerForm({ initialData }: CustomerFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Company / School Name</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Company Name</label>
             <input
               required
               type="text"
-              placeholder="e.g. Oakridge High School"
+              placeholder="e.g. Acme Corporation"
               value={formData.companyName}
               onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold"

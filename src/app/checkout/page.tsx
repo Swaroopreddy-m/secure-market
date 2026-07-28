@@ -18,7 +18,6 @@ export default function CheckoutPage() {
   const { items, getCartTotal, clearCart } = useCartStore();
   const { data: session, status } = useSession();
   const router = useRouter();
-  
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("card");
 
@@ -36,6 +35,12 @@ export default function CheckoutPage() {
   const delivery = subtotal > 500 ? 0 : 50;
   const taxes = Math.round(subtotal * 0.05); // 5% tax
   const total = subtotal + delivery + taxes;
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/?redirect=/checkout");
+    }
+  }, [status, router]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -67,6 +72,14 @@ export default function CheckoutPage() {
       setIsLoadingAddresses(false);
     }
   }, [status]);
+
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto py-24 flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -166,7 +179,7 @@ export default function CheckoutPage() {
               <MapPin className="w-5 h-5 text-primary" /> Delivery Address
             </h2>
             
-            {status === "loading" || isLoadingAddresses ? (
+            {isLoadingAddresses ? (
               <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
             ) : status === "unauthenticated" ? (
               <div className="p-6 bg-muted/30 border rounded-2xl text-center text-sm text-muted-foreground">

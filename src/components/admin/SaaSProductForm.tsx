@@ -23,7 +23,7 @@ interface SaaSProductFormProps {
 
 const CATEGORIES = [
   "Payments", "Cards", "ATM", "UPI", "Wallet", "POS", "Merchant Portal",
-  "Mobile Banking", "Internet Banking", "Loans", "School ERP", "HRMS",
+  "Mobile Banking", "Internet Banking", "Loans", "Marketplace Portal", "HRMS",
   "CRM", "CMS", "Inventory", "Billing"
 ];
 
