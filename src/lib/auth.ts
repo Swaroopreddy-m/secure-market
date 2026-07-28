@@ -5,6 +5,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 
+if (!process.env.NEXTAUTH_SECRET) {
+  process.env.NEXTAUTH_SECRET = "default_secure_nextauth_fallback_secret_key_123456";
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
