@@ -3,11 +3,6 @@ import { getServerSession } from "next-auth/next";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { z } from "zod";
-import crypto from "crypto";
-
-function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
-}
 
 const orgCreateSchema = z.object({
   name: z.string().min(1, "Organization name is required"),
@@ -22,13 +17,6 @@ const orgCreateSchema = z.object({
   domain: z.string().optional().nullable(),
   type: z.string().optional().nullable(),
   remarks: z.string().optional().nullable(),
-
-  // Super Admin Details
-  adminEmployeeId: z.string().min(1, "Admin Employee ID is required"),
-  adminUsername: z.string().min(1, "Admin Username is required"),
-  adminName: z.string().min(1, "Admin Full Name is required"),
-  adminEmail: z.string().email("Valid admin email is required"),
-  adminPassword: z.string().min(6, "Admin password must be at least 6 characters"),
 });
 
 export async function GET(request: Request) {
@@ -85,73 +73,24 @@ export async function POST(request: Request) {
       }
     }
 
-    // Verify Admin details uniqueness
-    const existingUsername = await prisma.user.findUnique({
-      where: { username: data.adminUsername }
-    });
-    if (existingUsername) {
-      return NextResponse.json({ error: "Admin username already exists" }, { status: 400 });
-    }
-
-    const existingEmail = await prisma.user.findUnique({
-      where: { email: data.adminEmail }
-    });
-    if (existingEmail) {
-      return NextResponse.json({ error: "Admin email already exists" }, { status: 400 });
-    }
-
-    const existingEmp = await prisma.user.findUnique({
-      where: { employeeId: data.adminEmployeeId }
-    });
-    if (existingEmp) {
-      return NextResponse.json({ error: "Admin employee ID already exists" }, { status: 400 });
-    }
-
-    // Hash password
-    const hashed = hashPassword(data.adminPassword);
-
-    // Find roleId for SUPER_ADMIN
-    const roleRecord = await prisma.role.findUnique({
-      where: { name: "SUPER_ADMIN" }
-    });
-
     const parsedExpiry = data.expiryDate ? new Date(data.expiryDate) : null;
 
-    // Run creation in a Transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const org = await tx.organization.create({
-        data: {
-          name: data.name,
-          code: data.code,
-          logo: data.logo || "/images/orgs/default.png",
-          description: data.description,
-          subscription: data.subscription,
-          theme: data.theme,
-          status: data.status,
-          owner: data.owner,
-          expiryDate: parsedExpiry,
-          domain: data.domain || null,
-          type: data.type || "Retail Store",
-          remarks: data.remarks || "",
-        }
-      });
-
-      const user = await tx.user.create({
-        data: {
-          employeeId: data.adminEmployeeId,
-          username: data.adminUsername,
-          name: data.adminName,
-          email: data.adminEmail,
-          passwordHash: hashed,
-          role: "SUPER_ADMIN",
-          roleId: roleRecord?.id || null,
-          status: "ACTIVE",
-          department: "customers,users,reports,settings", // default Super Admin access rights
-          organizationId: org.id
-        }
-      });
-
-      return { org, user };
+    // Create Organization
+    const org = await prisma.organization.create({
+      data: {
+        name: data.name,
+        code: data.code,
+        logo: data.logo || "/images/orgs/default.png",
+        description: data.description,
+        subscription: data.subscription,
+        theme: data.theme,
+        status: data.status,
+        owner: data.owner,
+        expiryDate: parsedExpiry,
+        domain: data.domain || null,
+        type: data.type || "Retail Store",
+        remarks: data.remarks || "",
+      }
     });
 
     // Write audit log
@@ -161,11 +100,11 @@ export async function POST(request: Request) {
         action: "CREATE_ORGANIZATION",
         module: "ORGANIZATIONS",
         status: "SUCCESS",
-        details: `Created Organization ${result.org.name} (${result.org.code}) and Super Admin ${result.user.username}`
+        details: `Created Organization ${org.name} (${org.code})`
       }
     });
 
-    return NextResponse.json({ success: true, organizationId: result.org.id });
+    return NextResponse.json({ success: true, organizationId: org.id });
   } catch (error) {
     console.error("[ORGANIZATIONS_POST]", error);
     if (error instanceof z.ZodError) {
