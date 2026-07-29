@@ -162,6 +162,10 @@ export default function MakerUserWorkspace({
 
       if (!res.ok) {
         const data = await res.json();
+        if (data.error === "Validation failed" && data.details) {
+          const detailMsgs = data.details.map((d: any) => d.message).join(", ");
+          throw new Error(`Validation failed: ${detailMsgs}`);
+        }
         throw new Error(data.error || "Failed to save user account");
       }
 

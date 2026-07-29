@@ -101,11 +101,14 @@ export async function PATCH(
     }
 
     if (validatedData.employeeId && validatedData.employeeId !== existing.employeeId) {
-      const dupe = await prisma.user.findUnique({
-        where: { employeeId: validatedData.employeeId }
+      const dupe = await prisma.user.findFirst({
+        where: {
+          employeeId: validatedData.employeeId,
+          organizationId: existing.organizationId
+        }
       });
       if (dupe) {
-        return NextResponse.json({ error: "Employee ID already exists" }, { status: 400 });
+        return NextResponse.json({ error: "Employee ID already exists in this organization" }, { status: 400 });
       }
     }
 

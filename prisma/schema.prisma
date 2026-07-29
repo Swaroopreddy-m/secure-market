@@ -45,7 +45,7 @@ model User {
   role          String    @default("USER") // Keep for backward compatibility
 
   // Custom fields for Step 7 User Management
-  employeeId    String?   @unique
+  employeeId    String?
   username      String?   @unique
   passwordHash  String?
   department    String?
@@ -97,6 +97,8 @@ model User {
   checkerUsername    String?
   userApprovalStatus String? @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED, RETURNED
   roleMatrixStatus   String? @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED, RETURNED
+
+  @@unique([organizationId, employeeId])
 }
 
 model VerificationToken {

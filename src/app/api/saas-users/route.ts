@@ -74,11 +74,15 @@ export async function POST(request: Request) {
       empId = `EMP-${(count + 1).toString().padStart(4, "0")}`;
     }
 
-    const existingEmp = await prisma.user.findUnique({
-      where: { employeeId: empId }
+    const targetOrgId = session.user.role === "DEVELOPER" ? (validatedData.organizationId || null) : session.user.organizationId;
+    const existingEmp = await prisma.user.findFirst({
+      where: {
+        employeeId: empId,
+        organizationId: targetOrgId
+      }
     });
     if (existingEmp) {
-      return NextResponse.json({ error: "Employee ID already exists" }, { status: 400 });
+      return NextResponse.json({ error: "Employee ID already exists in this organization" }, { status: 400 });
     }
 
     const hashed = hashPassword(validatedData.password);
