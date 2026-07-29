@@ -99,12 +99,29 @@ export default function MerchantInventory({
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
 
-        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7); // 70% quality
-        if (isEdit) {
-          setEditForm(prev => ({ ...prev, image: compressedBase64 }));
-        } else {
-          setForm(prev => ({ ...prev, image: compressedBase64 }));
-        }
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          const formData = new FormData();
+          formData.append("file", blob, file.name || "upload.jpg");
+          
+          try {
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData
+            });
+            if (!res.ok) throw new Error("Upload failed");
+            const data = await res.json();
+            
+            if (isEdit) {
+              setEditForm(prev => ({ ...prev, image: data.url }));
+            } else {
+              setForm(prev => ({ ...prev, image: data.url }));
+            }
+          } catch (e) {
+            console.error("Image upload failed:", e);
+            alert("Image upload failed.");
+          }
+        }, "image/jpeg", 0.7);
       };
       img.src = event.target?.result as string;
     };
@@ -152,19 +169,34 @@ export default function MerchantInventory({
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
 
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.6); // 60% quality
-          
-          if (isEdit) {
-            setEditForm(prev => {
-              const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
-              return { ...prev, galleryInput: [...currentList, compressedBase64].join(",") };
-            });
-          } else {
-            setForm(prev => {
-              const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
-              return { ...prev, galleryInput: [...currentList, compressedBase64].join(",") };
-            });
-          }
+          canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const formData = new FormData();
+            formData.append("file", blob, file.name || "gallery.jpg");
+            
+            try {
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+              });
+              if (!res.ok) throw new Error("Upload failed");
+              const data = await res.json();
+              
+              if (isEdit) {
+                setEditForm(prev => {
+                  const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+                  return { ...prev, galleryInput: [...currentList, data.url].join(",") };
+                });
+              } else {
+                setForm(prev => {
+                  const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+                  return { ...prev, galleryInput: [...currentList, data.url].join(",") };
+                });
+              }
+            } catch (e) {
+              console.error("Gallery image upload failed:", e);
+            }
+          }, "image/jpeg", 0.6);
         };
         img.src = event.target?.result as string;
       };
@@ -209,6 +241,10 @@ export default function MerchantInventory({
       ? form.galleryInput.split(",").map(i => i.trim()).filter(Boolean)
       : [];
 
+    const productImg = (form.image && form.image !== "/images/products/vegetables.jpg" && form.image !== "") 
+      ? form.image 
+      : getProductPlaceholder(form.name);
+
     try {
       const res = await fetch("/api/merchant-products", {
         method: "POST",
@@ -218,7 +254,7 @@ export default function MerchantInventory({
           price: priceNum,
           unit: form.unit,
           category: form.category,
-          image: form.image,
+          image: productImg,
           inStock: form.inStock,
           discount: discountNum,
           quality: form.quality,
@@ -309,6 +345,10 @@ export default function MerchantInventory({
       ? editForm.galleryInput.split(",").map(i => i.trim()).filter(Boolean)
       : [];
 
+    const productImg = (editForm.image && editForm.image !== "") 
+      ? editForm.image 
+      : getProductPlaceholder(editForm.name);
+
     try {
       const res = await fetch(`/api/merchant-products/${editingId}`, {
         method: "PATCH",
@@ -318,7 +358,7 @@ export default function MerchantInventory({
           price: priceNum,
           unit: editForm.unit,
           category: editForm.category,
-          image: editForm.image,
+          image: productImg,
           inStock: editForm.inStock,
           discount: discountNum,
           quality: editForm.quality,

@@ -8,11 +8,18 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
+    const session = await getServerSession(authOptions);
+
+    let organizationIdFilter = {};
+    if (session && session.user && session.user.role !== "DEVELOPER") {
+      organizationIdFilter = { organizationId: session.user.organizationId };
+    }
 
     const products = await prisma.storeProduct.findMany({
       where: {
         AND: [
           category && category !== "All" ? { category } : {},
+          organizationIdFilter,
           {
             OR: [
               { shopId: null },
@@ -51,8 +58,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = productSchema.parse(body);
 
+    const orgId = session.user.role === "DEVELOPER" ? (body.organizationId || null) : session.user.organizationId;
+
     const product = await prisma.storeProduct.create({
-      data: validatedData
+      data: {
+        ...validatedData,
+        organizationId: orgId
+      }
     });
 
     return NextResponse.json(product);

@@ -21,7 +21,24 @@ const customerSchema = z.object({
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const role = session.user.role;
+    const orgId = session.user.organizationId;
+
+    let whereClause = {};
+    if (role !== "DEVELOPER") {
+      if (!orgId) {
+        return NextResponse.json([]);
+      }
+      whereClause = { organizationId: orgId };
+    }
+
     const customers = await prisma.customer.findMany({
+      where: whereClause,
       orderBy: { companyName: "asc" }
     });
     return NextResponse.json(customers);
@@ -52,6 +69,7 @@ export async function POST(request: Request) {
     }
 
     const expiryDate = validatedData.expiry ? new Date(validatedData.expiry) : null;
+    const orgId = session.user.role === "DEVELOPER" ? body.organizationId || null : session.user.organizationId;
 
     const customer = await prisma.customer.create({
       data: {
@@ -66,7 +84,8 @@ export async function POST(request: Request) {
         email: validatedData.email,
         phone: validatedData.phone,
         status: validatedData.status,
-        expiry: expiryDate
+        expiry: expiryDate,
+        organizationId: orgId
       }
     });
 

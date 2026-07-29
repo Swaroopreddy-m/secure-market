@@ -36,6 +36,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const existing = await prisma.storeProduct.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { name, price, unit, category, image, inStock, discount, quality, description, stock, images, shopId, applicationId } = body;
 
@@ -60,6 +72,18 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session || !["DEVELOPER", "SUPER_ADMIN", "ADMIN", "PRODUCT_ADMIN"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const existing = await prisma.storeProduct.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

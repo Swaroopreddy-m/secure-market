@@ -97,13 +97,25 @@ model VerificationToken {
 
 // Enterprise SaaS Models (Step 13 Database Improvements)
 model Organization {
-  id        String     @id @default(cuid())
-  name      String
-  code      String     @unique
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  customers Customer[]
-  users     User[]
+  id           String         @id @default(cuid())
+  name         String
+  code         String         @unique
+  logo         String?        @default("/images/orgs/default.png")
+  description  String?
+  subscription String         @default("FREE")
+  theme        String         @default("light")
+  status       String         @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED, DEACTIVATED
+  owner        String?
+  expiryDate   DateTime?
+  domain       String?        @unique
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  customers    Customer[]
+  users        User[]
+  applications Application[]
+  shops        Shop[]
+  products     StoreProduct[]
+  orders       Order[]
 }
 
 model Customer {
@@ -291,6 +303,9 @@ model StoreProduct {
   shopId        String?
   shop          Shop?        @relation(fields: [shopId], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   discount      Float       @default(0.0)
   quality       String      @default("Premium")
   description   String?     @default("")
@@ -312,6 +327,9 @@ model Order {
   items           OrderItem[]
   applicationId   String?
   application     Application? @relation(fields: [applicationId], references: [id])
+
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model OrderItem {
@@ -338,6 +356,9 @@ model Application {
   products    StoreProduct[]
   orders      Order[]
   shops       Shop[]
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model Shop {
@@ -354,6 +375,9 @@ model Shop {
 
   users         User[]
   products      StoreProduct[]
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model ProductHistory {

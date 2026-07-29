@@ -21,8 +21,23 @@ export default async function SaaSProductsPage() {
 
   let products: any[] = [];
   try {
+    const role = session.user.role;
+    let whereClause = {};
+    if (role === "SUPER_ADMIN") {
+      whereClause = {
+        subscriptions: {
+          some: {
+            customer: {
+              organizationId: session.user.organizationId
+            }
+          }
+        }
+      };
+    }
+
     // Fetch products along with subscription (customer) counts and user counts
     products = await prisma.product.findMany({
+      where: whereClause,
       include: {
         subscriptions: {
           include: { customer: true }

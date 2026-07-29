@@ -18,7 +18,16 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    let whereClause = {};
+    if (session.user.role !== "DEVELOPER") {
+      if (!session.user.organizationId) {
+        return NextResponse.json([]);
+      }
+      whereClause = { organizationId: session.user.organizationId };
+    }
+
     const apps = await prisma.application.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" }
     });
 
@@ -38,12 +47,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = applicationSchema.parse(body);
 
+    const orgId = session.user.role === "DEVELOPER" ? (body.organizationId || null) : session.user.organizationId;
+
     const newApp = await prisma.application.create({
       data: {
         name: validatedData.name,
         logo: validatedData.logo || "/images/apps/default.png",
         description: validatedData.description || null,
-        settings: validatedData.settings || null
+        settings: validatedData.settings || null,
+        organizationId: orgId
       }
     });
 

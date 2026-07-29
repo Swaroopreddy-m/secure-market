@@ -33,6 +33,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const updated = await prisma.application.update({
       where: { id },
       data: {
@@ -77,6 +81,10 @@ export async function DELETE(
 
     if (!existing) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await prisma.application.delete({

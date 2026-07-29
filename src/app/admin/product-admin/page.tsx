@@ -12,19 +12,43 @@ export default async function ProductAdminDashboard() {
     redirect("/");
   }
 
+  const role = session.user.role;
+  const orgId = session.user.organizationId;
+
+  let userWhereClause: any = { role: "USER" };
+  let appWhereClause: any = {};
+  let productWhereClause: any = {};
+  let customerWhereClause: any = {};
+
+  if (role !== "DEVELOPER") {
+    userWhereClause.organizationId = orgId;
+    appWhereClause.organizationId = orgId;
+    customerWhereClause.organizationId = orgId;
+    productWhereClause.subscriptions = {
+      some: {
+        customer: {
+          organizationId: orgId
+        }
+      }
+    };
+  }
+
   // Fetch initial collections
   const [products, merchants, customers, applications] = await Promise.all([
     prisma.product.findMany({
+      where: productWhereClause,
       orderBy: { createdAt: "desc" }
     }),
     prisma.user.findMany({
-      where: { role: "USER" },
+      where: userWhereClause,
       orderBy: { createdAt: "desc" }
     }),
     prisma.customer.findMany({
+      where: customerWhereClause,
       select: { id: true, companyName: true, customerId: true }
     }),
     prisma.application.findMany({
+      where: appWhereClause,
       orderBy: { createdAt: "desc" }
     })
   ]);

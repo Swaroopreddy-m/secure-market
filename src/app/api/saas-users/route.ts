@@ -87,6 +87,7 @@ export async function POST(request: Request) {
         roleId: roleRecord?.id || null,
         department: validatedData.department || null,
         status: validatedData.status,
+        organizationId: session.user.role === "DEVELOPER" ? (body.organizationId || null) : session.user.organizationId,
         assignedProducts: {
           connect: validatedData.productIds.map((id) => ({ id }))
         },

@@ -12,8 +12,19 @@ export default async function AdminUsersPage() {
   }
 
   // Fetch all users, roles, products, customers
+  const role = session.user.role;
+  const orgId = session.user.organizationId;
+
+  let userWhereClause = {};
+  let customerWhereClause = {};
+  if (role !== "DEVELOPER") {
+    userWhereClause = { organizationId: orgId };
+    customerWhereClause = { organizationId: orgId };
+  }
+
   const [dbUsers, roles, products, customers] = await Promise.all([
     prisma.user.findMany({
+      where: userWhereClause,
       include: {
         assignedProducts: true,
         assignedCustomers: true
@@ -22,7 +33,10 @@ export default async function AdminUsersPage() {
     }),
     prisma.role.findMany({ select: { id: true, name: true } }),
     prisma.product.findMany({ select: { id: true, name: true, code: true } }),
-    prisma.customer.findMany({ select: { id: true, companyName: true, customerId: true } })
+    prisma.customer.findMany({
+      where: customerWhereClause,
+      select: { id: true, companyName: true, customerId: true }
+    })
   ]);
 
   // Map users structure for table view

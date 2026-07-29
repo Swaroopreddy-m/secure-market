@@ -49,6 +49,10 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Enforce creation hierarchy on updates
     const creatorRole = session.user.role;
     const targetRole = validatedData.role;
@@ -178,6 +182,10 @@ export async function DELETE(
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && user.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Do not delete oneself

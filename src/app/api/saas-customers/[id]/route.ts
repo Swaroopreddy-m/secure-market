@@ -24,6 +24,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const customer = await prisma.customer.findUnique({
       where: { id }
@@ -31,6 +36,10 @@ export async function GET(
 
     if (!customer) {
       return NextResponse.json({ error: "Customer tenant not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && customer.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     return NextResponse.json(customer);
@@ -61,6 +70,10 @@ export async function PATCH(
 
     if (!existing) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Check code uniqueness if changed
@@ -134,6 +147,10 @@ export async function DELETE(
 
     if (!customer) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    if (session.user.role !== "DEVELOPER" && customer.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await prisma.customer.delete({

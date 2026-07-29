@@ -354,36 +354,36 @@ async function main() {
 
   // 6. Seed default Organization & Customer
   const defaultOrg = await prisma.organization.upsert({
-    where: { code: "OAK-01" },
-    update: { name: "Oakridge Academy" },
-    create: { name: "Oakridge Academy", code: "OAK-01" }
+    where: { code: "ACM-01" },
+    update: { name: "Acme Groceries Org" },
+    create: { name: "Acme Groceries Org", code: "ACM-01" }
   })
 
   const defaultCust = await prisma.customer.upsert({
-    where: { customerId: "OAK-01-CUST" },
+    where: { customerId: "ACM-01-CUST" },
     update: {
-      companyName: "Oakridge School",
-      type: "School",
-      address: "123 Education Lane",
+      companyName: "Acme Supermarket",
+      type: "Retail",
+      address: "456 Market Road",
       country: "India",
       state: "Karnataka",
       city: "Bengaluru",
       contactPerson: "Sarah Principal",
-      email: "sarah_principal@oakridge.local",
+      email: "admin@acme.local",
       phone: "+91 9988776655",
       status: "ACTIVE",
       organizationId: defaultOrg.id
     },
     create: {
-      customerId: "OAK-01-CUST",
-      companyName: "Oakridge School",
-      type: "School",
-      address: "123 Education Lane",
+      customerId: "ACM-01-CUST",
+      companyName: "Acme Supermarket",
+      type: "Retail",
+      address: "456 Market Road",
       country: "India",
       state: "Karnataka",
       city: "Bengaluru",
       contactPerson: "Sarah Principal",
-      email: "sarah_principal@oakridge.local",
+      email: "admin@acme.local",
       phone: "+91 9988776655",
       status: "ACTIVE",
       organizationId: defaultOrg.id
