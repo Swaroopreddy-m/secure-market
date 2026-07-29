@@ -10,7 +10,26 @@ export async function GET(request: Request) {
     const category = searchParams.get("category");
 
     const products = await prisma.storeProduct.findMany({
-      where: category && category !== "All" ? { category } : undefined,
+      where: {
+        AND: [
+          category && category !== "All" ? { category } : {},
+          {
+            OR: [
+              { shopId: null },
+              {
+                shop: {
+                  status: "ACTIVE",
+                  users: {
+                    some: {
+                      status: "ACTIVE"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
       orderBy: { createdAt: "desc" }
     });
 

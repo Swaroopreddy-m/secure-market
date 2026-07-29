@@ -9,6 +9,8 @@ import {
   AppWindow, Edit, Trash2, Settings, Building2, ListOrdered,
   FileText, BarChart3, Bell, Eye, Lock, ShieldCheck, Tag
 } from "lucide-react";
+import { getProductPlaceholder } from "@/lib/mockData";
+
 
 interface Product {
   id: string;
@@ -1000,7 +1002,16 @@ export default function ProductAdminTabs({
                       <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10">
                         <td className="p-4 px-6 font-bold text-slate-800 dark:text-slate-200">
                           <div className="flex items-center gap-3">
-                            <span className="w-9 h-9 relative rounded-lg overflow-hidden bg-muted"><img src={p.image} alt={p.name} className="object-cover w-full h-full" /></span>
+                            <span className="w-9 h-9 relative rounded-lg overflow-hidden bg-muted">
+                              <img 
+                                src={p.image || getProductPlaceholder(p.name)} 
+                                alt={p.name} 
+                                className="object-cover w-full h-full" 
+                                onError={(e) => {
+                                  e.currentTarget.src = getProductPlaceholder(p.name);
+                                }}
+                              />
+                            </span>
                             <div>
                               <p>{p.name}</p>
                               <p className="text-[9px] text-slate-400 font-semibold mt-0.5">₹{p.price} / {p.unit} • {p.quality}</p>

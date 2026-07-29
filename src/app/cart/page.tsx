@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import { getProductPlaceholder } from "@/lib/mockData";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,7 @@ export default function CartPage() {
 
   if (!mounted || status === "loading") {
     return (
-      <div className="container mx-auto px-4 py-24 flex items-center justify-center min-h-[60vh]">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -37,26 +37,30 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center text-center min-h-[60vh]">
-        <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-          <ShoppingBag className="w-10 h-10 text-muted-foreground" />
+      <div className="container mx-auto px-4 py-16 text-center max-w-md">
+        <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+          <ShoppingBag className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl font-bold font-inter tracking-tight mb-4">Your Cart is Empty</h1>
-        <p className="text-muted-foreground mb-8 max-w-md">Looks like you haven&apos;t added anything to your cart yet. Browse our categories and discover fresh deals!</p>
-        <Link href="/" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-full font-bold transition-all shadow-md">
-          Start Shopping
+        <h1 className="text-2xl font-bold mb-2">Your Cart is Empty</h1>
+        <p className="text-muted-foreground mb-8">Add some fresh products to your cart and start shopping.</p>
+        <Link href="/" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-full font-bold inline-block">
+          Browse Products
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 md:py-16">
-      <h1 className="text-3xl md:text-4xl font-bold font-inter tracking-tight mb-8">Shopping Cart</h1>
+    <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <h1 className="text-3xl font-bold mb-8">Shopping Cart</h1>
 
-      <div className="grid lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-card border rounded-2xl overflow-hidden shadow-sm h-fit">
+          <div className="p-6 border-b">
+            <h2 className="text-lg font-semibold">Cart Items ({items.length})</h2>
+          </div>
+
+          <div className="flex flex-col">
             {/* Header */}
             <div className="hidden sm:grid grid-cols-6 gap-4 p-4 bg-muted/50 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               <div className="col-span-3">Product</div>
@@ -71,7 +75,14 @@ export default function CartPage() {
                 <div key={item.id} className="grid sm:grid-cols-6 gap-4 p-4 sm:items-center">
                   <div className="col-span-3 flex items-center gap-4">
                     <div className="relative w-20 h-20 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-muted flex-shrink-0">
-                      <Image src={item.image} alt={item.name} fill className="object-cover" />
+                      <img 
+                        src={item.image || getProductPlaceholder(item.name)} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          e.currentTarget.src = getProductPlaceholder(item.name);
+                        }}
+                      />
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground line-clamp-1">{item.name}</h3>

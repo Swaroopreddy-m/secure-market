@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Search, Filter, Eye, Truck, Package, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
+import { getProductPlaceholder } from "@/lib/mockData";
 
 export default async function AdminOrdersPage() {
   const orders = await prisma.order.findMany({
@@ -95,7 +95,14 @@ export default async function AdminOrdersPage() {
                             className="w-8 h-8 rounded-full border-2 border-white bg-muted flex items-center justify-center overflow-hidden ring-2 ring-transparent group-hover/items:ring-primary/20 transition-all font-inter"
                             title={item.product.name}
                           >
-                            <Image src={item.product.image} alt={item.product.name} width={32} height={32} className="w-full h-full object-cover" />
+                            <img 
+                              src={item.product.image || getProductPlaceholder(item.product.name)} 
+                              alt={item.product.name} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                e.currentTarget.src = getProductPlaceholder(item.product.name);
+                              }}
+                            />
                           </div>
                         ))}
                         {order.items.length > 3 && (

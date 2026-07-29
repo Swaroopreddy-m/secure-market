@@ -199,9 +199,87 @@ export async function DELETE(
       return NextResponse.json({ error: "Product Admin can only delete User (Shop) accounts." }, { status: 403 });
     }
 
-    await prisma.user.delete({
-      where: { id }
+    // Find all products associated with the user's shop
+    const userProducts = user.shopId 
+      ? await prisma.storeProduct.findMany({ where: { shopId: user.shopId } })
+      : [];
+
+    // Find all orders placed by the user or containing their products
+    const userOrders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { userId: user.id },
+          user.shopId ? { items: { some: { product: { shopId: user.shopId } } } } : {}
+        ]
+      },
+      include: { items: true }
     });
+
+    // Move products to ProductHistory and InventoryHistory
+    if (userProducts.length > 0) {
+      await prisma.productHistory.createMany({
+        data: userProducts.map(p => ({
+          productId: p.id,
+          name: p.name,
+          price: p.price,
+          unit: p.unit,
+          category: p.category,
+          image: p.image || "",
+          shopId: p.shopId
+        }))
+      });
+
+      await prisma.inventoryHistory.createMany({
+        data: userProducts.map(p => ({
+          productId: p.id,
+          productName: p.name,
+          stock: p.stock
+        }))
+      });
+    }
+
+    // Move orders to OrderHistory
+    if (userOrders.length > 0) {
+      await prisma.orderHistory.createMany({
+        data: userOrders.map(o => ({
+          orderId: o.id,
+          userId: o.userId,
+          totalAmount: o.totalAmount,
+          status: o.status
+        }))
+      });
+    }
+
+    // Execute transactional move/delete
+    await prisma.$transaction([
+      prisma.order.deleteMany({
+        where: {
+          id: { in: userOrders.map(o => o.id) }
+        }
+      }),
+      prisma.storeProduct.deleteMany({
+        where: {
+          id: { in: userProducts.map(p => p.id) }
+        }
+      }),
+      prisma.user.delete({
+        where: { id }
+      })
+    ]);
+
+    // Automatically purge history older than 365 days
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    try {
+      await prisma.$transaction([
+        prisma.productHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } }),
+        prisma.orderHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } }),
+        prisma.inventoryHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } })
+      ]);
+    } catch (e) {
+      console.error("Failed to auto-purge expired history logs:", e);
+    }
 
     // Write audit log
     await prisma.auditLog.create({

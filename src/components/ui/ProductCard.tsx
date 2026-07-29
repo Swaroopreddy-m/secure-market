@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { Plus, Minus, ShoppingCart } from "lucide-react";
-import { Product } from "@/lib/mockData";
+import { Product, getProductPlaceholder } from "@/lib/mockData";
 import { useCartStore } from "@/lib/store";
 import { motion } from "framer-motion";
 
@@ -52,12 +51,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
 
       <div className="relative w-full aspect-square bg-muted/30 overflow-hidden">
-        <Image 
-          src={product.image} 
+        <img 
+          src={product.image || getProductPlaceholder(product.name)} 
           alt={product.name}
-          fill
-          className={`object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-40' : ''}`}
-          sizes="(max-width: 768px) 50vw, 33vw"
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-40' : ''}`}
+          onError={(e) => {
+            e.currentTarget.src = getProductPlaceholder(product.name);
+          }}
         />
       </div>
 

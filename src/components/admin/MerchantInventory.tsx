@@ -7,6 +7,8 @@ import {
   AlertCircle, Trash2, Edit2, ToggleLeft, ToggleRight,
   TrendingUp, IndianRupee, Eye, EyeOff, Save, X, Image as ImageIcon
 } from "lucide-react";
+import { getProductPlaceholder } from "@/lib/mockData";
+
 
 interface StoreProduct {
   id: string;
@@ -67,6 +69,124 @@ export default function MerchantInventory({
     stock: "100",
     galleryInput: ""
   });
+
+  // File Upload Handlers with Compression and Resize
+  const processImageFile = (file: File, isEdit: boolean) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7); // 70% quality
+        if (isEdit) {
+          setEditForm(prev => ({ ...prev, image: compressedBase64 }));
+        } else {
+          setForm(prev => ({ ...prev, image: compressedBase64 }));
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file, isEdit);
+  };
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>, isEdit: boolean) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file, isEdit);
+  };
+
+  const handleGalleryFilesChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.6); // 60% quality
+          
+          if (isEdit) {
+            setEditForm(prev => {
+              const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+              return { ...prev, galleryInput: [...currentList, compressedBase64].join(",") };
+            });
+          } else {
+            setForm(prev => {
+              const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+              return { ...prev, galleryInput: [...currentList, compressedBase64].join(",") };
+            });
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeGalleryImage = (index: number, isEdit: boolean) => {
+    if (isEdit) {
+      setEditForm(prev => {
+        const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+        const updated = currentList.filter((_, i) => i !== index);
+        return { ...prev, galleryInput: updated.join(",") };
+      });
+    } else {
+      setForm(prev => {
+        const currentList = prev.galleryInput ? prev.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : [];
+        const updated = currentList.filter((_, i) => i !== index);
+        return { ...prev, galleryInput: updated.join(",") };
+      });
+    }
+  };
 
   // Handle Create Product
   const handleSubmit = async (e: React.FormEvent) => {
@@ -433,28 +553,100 @@ export default function MerchantInventory({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Image URL</label>
-              <input
-                required
-                type="text"
-                placeholder="/images/products/strawberries.jpg"
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-              />
-            </div>
+          <div className="space-y-4 border-t dark:border-slate-800 pt-4">
+            <h5 className="text-xs font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wide">Product Media & Gallery</h5>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Primary Image Uploader */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Primary Product Image</label>
+                
+                {form.image ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video bg-slate-50 dark:bg-slate-900 group">
+                    <img src={form.image} alt="Primary preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setForm(prev => ({ ...prev, image: "" }))}
+                        className="p-2 bg-red-650 hover:bg-red-700 text-white rounded-full transition-transform active:scale-90"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleImageDrop(e, false)}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-indigo-500 rounded-2xl p-6 text-center bg-slate-50/50 dark:bg-slate-950/20 transition-colors flex flex-col items-center justify-center cursor-pointer min-h-[140px]"
+                    onClick={() => document.getElementById("create-primary-file")?.click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="create-primary-file" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageFileChange(e, false)} 
+                      className="hidden" 
+                    />
+                    <ImageIcon className="w-8 h-8 text-slate-400 mb-2" />
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">Drag & drop photo or click to upload</p>
+                    <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WebP up to 5MB (compressed automatically)</p>
+                  </div>
+                )}
+                
+                <input 
+                  type="text" 
+                  placeholder="Or paste an image URL here..." 
+                  value={form.image}
+                  onChange={(e) => setForm(prev => ({ ...prev, image: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gallery Images (Comma separated URLs)</label>
-              <input
-                type="text"
-                placeholder="e.g. /images/p1.jpg, /images/p2.jpg"
-                value={form.galleryInput}
-                onChange={(e) => setForm({ ...form, galleryInput: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-              />
+              {/* Gallery Images Uploader */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Gallery Images (Multiple)</label>
+                
+                <div className="grid grid-cols-4 gap-2">
+                  {(form.galleryInput ? form.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative rounded-lg overflow-hidden border aspect-square bg-slate-50 group">
+                      <img src={imgUrl} alt={`Gallery preview ${idx}`} className="w-full h-full object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={() => removeGalleryImage(idx, false)}
+                        className="absolute top-1 right-1 p-1 bg-red-650 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  <div 
+                    onClick={() => document.getElementById("create-gallery-file")?.click()}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-indigo-500 rounded-lg flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-955/20 cursor-pointer aspect-square"
+                  >
+                    <input 
+                      type="file" 
+                      id="create-gallery-file" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={(e) => handleGalleryFilesChange(e, false)} 
+                      className="hidden" 
+                    />
+                    <Plus className="w-4 h-4 text-slate-400" />
+                    <span className="text-[8px] font-bold text-slate-400 mt-1">Add Photos</span>
+                  </div>
+                </div>
+                
+                <input 
+                  type="text" 
+                  placeholder="Or paste comma separated image URLs..." 
+                  value={form.galleryInput}
+                  onChange={(e) => setForm(prev => ({ ...prev, galleryInput: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
+                />
+              </div>
             </div>
           </div>
 
@@ -594,26 +786,100 @@ export default function MerchantInventory({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Primary Image URL</label>
-              <input
-                required
-                type="text"
-                value={editForm.image}
-                onChange={(e) => setEditForm({ ...editForm, image: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-              />
-            </div>
+          <div className="space-y-4 border-t dark:border-slate-800 pt-4">
+            <h5 className="text-xs font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wide">Product Media & Gallery</h5>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Primary Image Uploader */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Primary Product Image</label>
+                
+                {editForm.image ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 aspect-video bg-slate-50 dark:bg-slate-900 group">
+                    <img src={editForm.image} alt="Primary preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setEditForm(prev => ({ ...prev, image: "" }))}
+                        className="p-2 bg-red-650 hover:bg-red-700 text-white rounded-full transition-transform active:scale-90"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleImageDrop(e, true)}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-indigo-500 rounded-2xl p-6 text-center bg-slate-50/50 dark:bg-slate-955/20 transition-colors flex flex-col items-center justify-center cursor-pointer min-h-[140px]"
+                    onClick={() => document.getElementById("edit-primary-file")?.click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="edit-primary-file" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageFileChange(e, true)} 
+                      className="hidden" 
+                    />
+                    <ImageIcon className="w-8 h-8 text-slate-400 mb-2" />
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">Drag & drop photo or click to upload</p>
+                    <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WebP up to 5MB (compressed automatically)</p>
+                  </div>
+                )}
+                
+                <input 
+                  type="text" 
+                  placeholder="Or paste an image URL here..." 
+                  value={editForm.image}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, image: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gallery Images (Comma separated URLs)</label>
-              <input
-                type="text"
-                value={editForm.galleryInput}
-                onChange={(e) => setEditForm({ ...editForm, galleryInput: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
-              />
+              {/* Gallery Images Uploader */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Gallery Images (Multiple)</label>
+                
+                <div className="grid grid-cols-4 gap-2">
+                  {(editForm.galleryInput ? editForm.galleryInput.split(",").map(i => i.trim()).filter(Boolean) : []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative rounded-lg overflow-hidden border aspect-square bg-slate-50 group">
+                      <img src={imgUrl} alt={`Gallery preview ${idx}`} className="w-full h-full object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={() => removeGalleryImage(idx, true)}
+                        className="absolute top-1 right-1 p-1 bg-red-650 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  <div 
+                    onClick={() => document.getElementById("edit-gallery-file")?.click()}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-indigo-500 rounded-lg flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-955/20 cursor-pointer aspect-square"
+                  >
+                    <input 
+                      type="file" 
+                      id="edit-gallery-file" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={(e) => handleGalleryFilesChange(e, true)} 
+                      className="hidden" 
+                    />
+                    <Plus className="w-4 h-4 text-slate-400" />
+                    <span className="text-[8px] font-bold text-slate-400 mt-1">Add Photos</span>
+                  </div>
+                </div>
+                
+                <input 
+                  type="text" 
+                  placeholder="Or paste comma separated image URLs..." 
+                  value={editForm.galleryInput}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, galleryInput: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-mono font-semibold"
+                />
+              </div>
             </div>
           </div>
 
@@ -666,13 +932,14 @@ export default function MerchantInventory({
                   <tr key={prod.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                     <td className="p-4 px-6">
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border relative flex items-center justify-center text-sm font-bold">
-                        {prod.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={prod.image} alt={prod.name} className="object-cover w-full h-full" onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }} />
-                        ) : null}
-                        <span className="absolute opacity-30">🥬</span>
+                        <img 
+                          src={prod.image || getProductPlaceholder(prod.name)} 
+                          alt={prod.name} 
+                          className="object-cover w-full h-full" 
+                          onError={(e) => {
+                            e.currentTarget.src = getProductPlaceholder(prod.name);
+                          }} 
+                        />
                       </div>
                     </td>
                     <td className="p-4 px-6">

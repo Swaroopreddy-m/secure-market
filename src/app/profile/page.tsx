@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import { LogOut, Package, User, MapPin, ChevronRight, Clock, Loader2, Key, Mail, Phone, Home, Globe, Map } from "lucide-react";
+import { getProductPlaceholder } from "@/lib/mockData";
 import Link from "next/link";
 
 interface AddressItem {
@@ -494,7 +495,14 @@ export default function ProfilePage() {
                       <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                         {order.items?.slice(0, 4).map((item) => (
                           <div key={item.id} className="relative w-12 h-12 rounded-lg border bg-background overflow-hidden flex-shrink-0">
-                            <Image src={item.product?.image || ""} alt={item.product?.name || ""} fill className="object-cover" />
+                            <img 
+                               src={item.product?.image || getProductPlaceholder(item.product?.name || "Product")} 
+                               alt={item.product?.name || "Product"} 
+                               className="w-full h-full object-cover" 
+                               onError={(e) => {
+                                 e.currentTarget.src = getProductPlaceholder(item.product?.name || "Product");
+                               }}
+                             />
                           </div>
                         ))}
                         {order.items.length > 4 && (

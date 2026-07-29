@@ -355,3 +355,32 @@ model Shop {
   users         User[]
   products      StoreProduct[]
 }
+
+model ProductHistory {
+  id          String   @id @default(cuid())
+  productId   String
+  name        String
+  price       Float
+  unit        String
+  category    String
+  image       String
+  deletedAt   DateTime @default(now())
+  shopId      String?
+}
+
+model OrderHistory {
+  id          String   @id @default(cuid())
+  orderId     String
+  userId      String
+  totalAmount Float
+  status      String
+  deletedAt   DateTime @default(now())
+}
+
+model InventoryHistory {
+  id          String   @id @default(cuid())
+  productId   String
+  productName String
+  stock       Int
+  deletedAt   DateTime @default(now())
+}
