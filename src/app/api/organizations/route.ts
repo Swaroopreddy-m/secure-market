@@ -20,6 +20,8 @@ const orgCreateSchema = z.object({
   owner: z.string().optional().nullable(),
   expiryDate: z.string().optional().nullable(),
   domain: z.string().optional().nullable(),
+  type: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
 
   // Super Admin Details
   adminEmployeeId: z.string().min(1, "Admin Employee ID is required"),
@@ -129,6 +131,8 @@ export async function POST(request: Request) {
           owner: data.owner,
           expiryDate: parsedExpiry,
           domain: data.domain || null,
+          type: data.type || "Retail Store",
+          remarks: data.remarks || "",
         }
       });
 

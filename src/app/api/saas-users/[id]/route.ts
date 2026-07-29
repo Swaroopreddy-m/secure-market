@@ -19,7 +19,14 @@ const userUpdateSchema = z.object({
   department: z.string().optional(),
   status: z.string().optional(),
   productIds: z.array(z.string()).optional(),
-  customerIds: z.array(z.string()).optional()
+  customerIds: z.array(z.string()).optional(),
+  
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
+  mobile: z.string().optional().nullable(),
+  designation: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
+  userApprovalStatus: z.string().optional(), // DRAFT, PENDING
 });
 
 export async function PATCH(
@@ -51,6 +58,11 @@ export async function PATCH(
 
     if (session.user.role !== "DEVELOPER" && existing.organizationId !== session.user.organizationId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Business Rule: Approved records cannot be edited
+    if (existing.userApprovalStatus === "APPROVED") {
+      return NextResponse.json({ error: "Approved user records cannot be modified." }, { status: 400 });
     }
 
     // Enforce creation hierarchy on updates
@@ -114,7 +126,7 @@ export async function PATCH(
     // Prepare relation connections
     const productConnect = validatedData.productIds 
       ? {
-          set: [], // clear existing relations
+          set: [],
           connect: validatedData.productIds.map(pid => ({ id: pid }))
         }
       : undefined;
@@ -126,20 +138,37 @@ export async function PATCH(
         }
       : undefined;
 
+    // Query creator user details for maker audit tracking
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    });
+    const makerUsername = currentUser?.username || session.user.name || "devroot";
+
+    const firstNameVal = validatedData.firstName !== undefined ? validatedData.firstName : existing.firstName;
+    const lastNameVal = validatedData.lastName !== undefined ? validatedData.lastName : existing.lastName;
+    const name = `${firstNameVal || ""} ${lastNameVal || ""}`.trim() || validatedData.username || existing.name;
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
         employeeId: validatedData.employeeId,
         username: validatedData.username,
-        name: validatedData.name,
+        name: name,
         email: validatedData.email,
         passwordHash: passHash,
         role: validatedData.role,
         roleId,
         department: validatedData.department,
-        status: validatedData.status,
+        status: "PENDING", // Stays pending Checker approval
         assignedProducts: productConnect,
-        assignedCustomers: customerConnect
+        assignedCustomers: customerConnect,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        mobile: validatedData.mobile,
+        designation: validatedData.designation,
+        remarks: validatedData.remarks,
+        userApprovalStatus: validatedData.userApprovalStatus || existing.userApprovalStatus,
+        makerUsername: makerUsername,
       }
     });
 
@@ -147,10 +176,10 @@ export async function PATCH(
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: "UPDATE",
+        action: validatedData.userApprovalStatus === "PENDING" ? "USER_RESUBMITTED" : "USER_MODIFIED",
         module: "USERS",
         status: "SUCCESS",
-        details: `Updated User Account ${updated.username}`
+        details: `Maker modified user ${updated.username} (${updated.employeeId}) with status ${updated.userApprovalStatus}`
       }
     });
 
@@ -160,7 +189,7 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: "Internal Error" }, { status: 505 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
 
@@ -207,12 +236,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Product Admin can only delete User (Shop) accounts." }, { status: 403 });
     }
 
-    // Find all products associated with the user's shop
+    // Move to histories if needed (grocery models compat)
     const userProducts = user.shopId 
       ? await prisma.storeProduct.findMany({ where: { shopId: user.shopId } })
       : [];
 
-    // Find all orders placed by the user or containing their products
     const userOrders = await prisma.order.findMany({
       where: {
         OR: [
@@ -223,7 +251,6 @@ export async function DELETE(
       include: { items: true }
     });
 
-    // Move products to ProductHistory and InventoryHistory
     if (userProducts.length > 0) {
       await prisma.productHistory.createMany({
         data: userProducts.map(p => ({
@@ -236,7 +263,6 @@ export async function DELETE(
           shopId: p.shopId
         }))
       });
-
       await prisma.inventoryHistory.createMany({
         data: userProducts.map(p => ({
           productId: p.id,
@@ -246,7 +272,6 @@ export async function DELETE(
       });
     }
 
-    // Move orders to OrderHistory
     if (userOrders.length > 0) {
       await prisma.orderHistory.createMany({
         data: userOrders.map(o => ({
@@ -261,33 +286,15 @@ export async function DELETE(
     // Execute transactional move/delete
     await prisma.$transaction([
       prisma.order.deleteMany({
-        where: {
-          id: { in: userOrders.map(o => o.id) }
-        }
+        where: { id: { in: userOrders.map(o => o.id) } }
       }),
       prisma.storeProduct.deleteMany({
-        where: {
-          id: { in: userProducts.map(p => p.id) }
-        }
+        where: { id: { in: userProducts.map(p => p.id) } }
       }),
       prisma.user.delete({
         where: { id }
       })
     ]);
-
-    // Automatically purge history older than 365 days
-    const oneYearAgo = new Date();
-    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
-
-    try {
-      await prisma.$transaction([
-        prisma.productHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } }),
-        prisma.orderHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } }),
-        prisma.inventoryHistory.deleteMany({ where: { deletedAt: { lt: oneYearAgo } } })
-      ]);
-    } catch (e) {
-      console.error("Failed to auto-purge expired history logs:", e);
-    }
 
     // Write audit log
     await prisma.auditLog.create({
@@ -296,7 +303,7 @@ export async function DELETE(
         action: "DELETE",
         module: "USERS",
         status: "SUCCESS",
-        details: `Deleted User Account ${user.username}`
+        details: `Deleted User Account ${user.username} (${user.employeeId})`
       }
     });
 

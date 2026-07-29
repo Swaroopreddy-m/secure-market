@@ -10,16 +10,21 @@ function hashPassword(password: string): string {
 }
 
 const userCreateSchema = z.object({
-  employeeId: z.string().min(1, "Employee ID is required"),
+  employeeId: z.string().optional().nullable(),
   username: z.string().min(1, "Username is required"),
-  name: z.string().min(1, "Full Name is required"),
   email: z.string().email("Valid email is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.string().default("USER"),
-  department: z.string().optional(),
-  status: z.string().default("ACTIVE"),
-  productIds: z.array(z.string()).default([]),
-  customerIds: z.array(z.string()).default([])
+  department: z.string().optional().nullable(),
+  status: z.string().default("PENDING"),
+  
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
+  mobile: z.string().optional().nullable(),
+  designation: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
+  organizationId: z.string().optional().nullable(),
+  userApprovalStatus: z.string().default("DRAFT"), // DRAFT, PENDING
 });
 
 export async function POST(request: Request) {
@@ -62,8 +67,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 });
     }
 
+    // Auto-generate employee ID sequentially if not provided
+    let empId = validatedData.employeeId?.trim();
+    if (!empId) {
+      const count = await prisma.user.count();
+      empId = `EMP-${(count + 1).toString().padStart(4, "0")}`;
+    }
+
     const existingEmp = await prisma.user.findUnique({
-      where: { employeeId: validatedData.employeeId }
+      where: { employeeId: empId }
     });
     if (existingEmp) {
       return NextResponse.json({ error: "Employee ID already exists" }, { status: 400 });
@@ -76,24 +88,36 @@ export async function POST(request: Request) {
       where: { name: validatedData.role }
     });
 
+    // Query creator user details for maker audit tracking
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    });
+    const makerUsername = currentUser?.username || session.user.name || "devroot";
+
+    const name = `${validatedData.firstName || ""} ${validatedData.lastName || ""}`.trim() || validatedData.username;
+
+    // Create user. If Developer is the creator, the user approval status is set from request (DRAFT or PENDING).
+    // The user's status begins as "PENDING" (or "INACTIVE"), not immediately "ACTIVE" until approved by the Checker.
     const user = await prisma.user.create({
       data: {
-        employeeId: validatedData.employeeId,
+        employeeId: empId,
         username: validatedData.username,
-        name: validatedData.name,
+        name: name,
         email: validatedData.email,
         passwordHash: hashed,
         role: validatedData.role,
         roleId: roleRecord?.id || null,
         department: validatedData.department || null,
-        status: validatedData.status,
-        organizationId: session.user.role === "DEVELOPER" ? (body.organizationId || null) : session.user.organizationId,
-        assignedProducts: {
-          connect: validatedData.productIds.map((id) => ({ id }))
-        },
-        assignedCustomers: {
-          connect: validatedData.customerIds.map((id) => ({ id }))
-        }
+        status: "PENDING", // Starts inactive pending Maker-Checker approvals
+        organizationId: session.user.role === "DEVELOPER" ? (validatedData.organizationId || null) : session.user.organizationId,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        mobile: validatedData.mobile,
+        designation: validatedData.designation,
+        remarks: validatedData.remarks,
+        makerUsername: makerUsername,
+        userApprovalStatus: validatedData.userApprovalStatus, // DRAFT or PENDING
+        roleMatrixStatus: "DRAFT", // Matrix starts as draft until explicitly modified in Roles & Matrix
       }
     });
 
@@ -101,10 +125,10 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: "CREATE",
+        action: validatedData.userApprovalStatus === "PENDING" ? "USER_SUBMITTED" : "USER_CREATED_DRAFT",
         module: "USERS",
         status: "SUCCESS",
-        details: `Created User Account ${user.username} (${user.role})`
+        details: `Maker created user ${user.username} (${user.employeeId}) with approval status ${user.userApprovalStatus}`
       }
     });
 

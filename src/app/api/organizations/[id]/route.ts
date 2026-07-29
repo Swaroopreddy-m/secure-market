@@ -14,6 +14,8 @@ const orgUpdateSchema = z.object({
   owner: z.string().optional().nullable(),
   expiryDate: z.string().optional().nullable(),
   domain: z.string().optional().nullable(),
+  type: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable(),
 });
 
 export async function PATCH(

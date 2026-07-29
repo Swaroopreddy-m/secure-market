@@ -82,9 +82,21 @@ model User {
   addresses     Address[]
 
   // Audits and Notifications
-  auditLogs     AuditLog[]
-  activityLogs  ActivityLog[]
-  notifications Notification[]
+  auditLogs             AuditLog[]
+  activityLogs          ActivityLog[]
+  notifications         Notification[]
+  superAdminPermissions SuperAdminPermission[]
+
+  // Maker-checker fields
+  firstName          String?
+  lastName           String?
+  mobile             String?
+  designation        String?
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userApprovalStatus String? @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED, RETURNED
+  roleMatrixStatus   String? @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED, RETURNED
 }
 
 model VerificationToken {
@@ -112,6 +124,8 @@ model Organization {
   updatedAt    DateTime       @updatedAt
   customers    Customer[]
   users        User[]
+  type         String?        @default("Retail Store")
+  remarks      String?
   applications Application[]
   shops        Shop[]
   products     StoreProduct[]
@@ -407,4 +421,20 @@ model InventoryHistory {
   productName String
   stock       Int
   deletedAt   DateTime @default(now())
+}
+
+model SuperAdminPermission {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module          String   // e.g. "Dashboard", "Organizations", ...
+  action          String   // e.g. "View", "Create", "Edit", ...
+  status          String   @default("PENDING_CONFIRMATION") // PENDING_CONFIRMATION, APPROVED, REJECTED, RETURNED
+  remarks         String?
+  makerUsername   String?
+  checkerUsername String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, module, action])
 }

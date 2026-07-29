@@ -2,32 +2,37 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import PermissionMatrix from "@/components/admin/PermissionMatrix";
+import MakerRolesMatrix from "@/components/admin/MakerRolesMatrix";
 
 export default async function AdminRolesMatrixPage() {
   const session = await getServerSession(authOptions);
 
-  // Only DEVELOPER has access to adjust global RBAC configs
+  // Only DEVELOPER has access to adjust Super Admin permissions matrix
   if (!session || session.user.role !== "DEVELOPER") {
     redirect("/");
   }
 
-  // Fetch roles, permissions, and mappings
-  const [roles, permissions, mappings] = await Promise.all([
-    prisma.role.findMany({ orderBy: { name: "asc" } }),
-    prisma.permission.findMany({ orderBy: { module: "asc" } }),
-    prisma.rolePermission.findMany({
-      select: { roleId: true, permissionId: true }
-    })
-  ]);
+  // Fetch all Super Admin users
+  const superAdmins = await prisma.user.findMany({
+    where: { role: "SUPER_ADMIN" },
+    select: {
+      id: true,
+      employeeId: true,
+      username: true,
+      name: true,
+      roleMatrixStatus: true
+    },
+    orderBy: { username: "asc" }
+  });
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <PermissionMatrix
-        roles={roles.map(r => ({ id: r.id, name: r.name, description: r.description }))}
-        permissions={permissions.map(p => ({ id: p.id, name: p.name, module: p.module, description: p.description }))}
-        initialMappings={mappings}
-      />
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div>
+        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Super Admin Role Permission Matrix</h2>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Map granular permissions to target Super Admin user accounts across all modules.</p>
+      </div>
+      
+      <MakerRolesMatrix superAdmins={superAdmins} />
     </div>
   );
 }

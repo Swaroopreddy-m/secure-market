@@ -9,7 +9,8 @@ import {
   Sun, Moon, Bell, Search, Command, Settings, ChevronRight, HelpCircle,
   Building2, ShieldCheck, FileSpreadsheet, Terminal, Database, BarChart3,
   Cpu, Sliders, FileText, History, Activity, AlertTriangle, Monitor,
-  Plus, Check, Sparkles, User as UserIcon, Play, LogOut, CheckSquare
+  Plus, Check, Sparkles, User as UserIcon, Play, LogOut, CheckSquare,
+  UserPlus, ShieldAlert
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -21,26 +22,30 @@ interface NavItem {
 }
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  // Developer
-  { name: "Developer Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["DEVELOPER"] },
-  { name: "System Monitoring", href: "/admin/monitoring", icon: Activity, allowedRoles: ["DEVELOPER"] },
-  { name: "Audit Logs", href: "/admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["DEVELOPER"] },
-  { name: "API Logs", href: "/admin/api-logs", icon: Terminal, allowedRoles: ["DEVELOPER"] },
+  // Developer Sidebar items
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["DEVELOPER"] },
   { name: "Organizations", href: "/admin/organizations", icon: Building2, allowedRoles: ["DEVELOPER"] },
+  { name: "Create User", href: "/admin/users/new", icon: UserPlus, allowedRoles: ["DEVELOPER"] },
+  { name: "Confirm Users", href: "/admin/users/confirm", icon: CheckSquare, allowedRoles: ["DEVELOPER"] },
   { name: "Roles & Matrix", href: "/admin/roles", icon: ShieldCheck, allowedRoles: ["DEVELOPER"] },
+  { name: "Roles & Matrix Confirmation", href: "/admin/roles/confirm", icon: ShieldAlert, allowedRoles: ["DEVELOPER"] },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["DEVELOPER"] },
+  { name: "System Monitoring", href: "/admin/monitoring", icon: Activity, allowedRoles: ["DEVELOPER"] },
+  { name: "API Logs", href: "/admin/api-logs", icon: Terminal, allowedRoles: ["DEVELOPER"] },
   { name: "Database", href: "/admin/database", icon: Database, allowedRoles: ["DEVELOPER"] },
   { name: "Deployments", href: "/admin/deployments", icon: Cpu, allowedRoles: ["DEVELOPER"] },
   { name: "Feature Flags", href: "/admin/configurations", icon: Sliders, allowedRoles: ["DEVELOPER"] },
-  { name: "Backups", href: "/admin/backups", icon: History, allowedRoles: ["DEVELOPER"] },
+  { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["DEVELOPER"] },
+  { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["DEVELOPER"] },
   
-  // Super Admin
+  // Super Admin Sidebar items
   { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
   { name: "Users", href: "/admin/users", icon: Users, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
   { name: "Customers", href: "/admin/customers", icon: Building2, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Reports", href: "/admin/reports", icon: FileText, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["SUPER_ADMIN"] },
-  { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["SUPER_ADMIN", "DEVELOPER"] },
+  { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["SUPER_ADMIN"] },
 
   // Product Admin
   { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },

@@ -38,7 +38,9 @@ export default async function EditOrganizationPage({ params }: EditOrgPageProps)
     status: org.status,
     owner: org.owner,
     expiryDate: org.expiryDate ? org.expiryDate.toISOString() : null,
-    domain: org.domain
+    domain: org.domain,
+    type: org.type,
+    remarks: org.remarks
   };
 
   return (

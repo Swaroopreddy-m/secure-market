@@ -35,6 +35,8 @@ export default async function OrganizationsPage() {
     owner: org.owner,
     expiryDate: org.expiryDate ? org.expiryDate.toISOString() : null,
     domain: org.domain,
+    type: org.type,
+    remarks: org.remarks,
     createdAt: org.createdAt.toISOString(),
     users: org.users,
     customers: org.customers

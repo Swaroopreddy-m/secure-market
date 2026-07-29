@@ -17,12 +17,26 @@ interface OrganizationFormProps {
     owner: string | null;
     expiryDate: Date | string | null;
     domain: string | null;
+    type?: string | null;
+    remarks?: string | null;
   } | null;
 }
 
 const SUBSCRIPTIONS = ["FREE", "PRO", "ENTERPRISE", "UNLIMITED"];
 const THEMES = ["light", "dark", "system"];
 const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "DEACTIVATED"];
+const ORGANIZATION_TYPES = [
+  "Vegetable Market",
+  "Shopping Mall",
+  "Cinema Hall",
+  "Hospital",
+  "Restaurant",
+  "Medical Store",
+  "School ERP",
+  "Bank",
+  "Retail Store",
+  "Warehouse"
+];
 
 export default function OrganizationForm({ initialData }: OrganizationFormProps) {
   const router = useRouter();
@@ -47,6 +61,8 @@ export default function OrganizationForm({ initialData }: OrganizationFormProps)
     owner: initialData?.owner || "",
     expiryDate: formatInitialDate(initialData?.expiryDate),
     domain: initialData?.domain || "",
+    type: initialData?.type || "Retail Store",
+    remarks: initialData?.remarks || "",
 
     // Super Admin details (only used during creation)
     adminEmployeeId: "",
@@ -68,7 +84,13 @@ export default function OrganizationForm({ initialData }: OrganizationFormProps)
       
       const method = initialData ? "PATCH" : "POST";
 
-      const payload = { ...formData };
+      // Auto-generate code from name if left empty
+      let codeValue = formData.code.trim();
+      if (!codeValue && formData.name) {
+        codeValue = formData.name.toUpperCase().replace(/[^A-Z0-9]/g, "-").replace(/-+/g, "-");
+      }
+
+      const payload = { ...formData, code: codeValue };
       
       // If editing, we do not send blank admin credentials
       if (initialData) {
@@ -217,6 +239,30 @@ export default function OrganizationForm({ initialData }: OrganizationFormProps)
               type="date"
               value={formData.expiryDate}
               onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+              className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold text-foreground"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Organization Type</label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold appearance-none text-foreground"
+            >
+              {ORGANIZATION_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2 col-span-1 md:col-span-2">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Remarks</label>
+            <input
+              type="text"
+              placeholder="e.g. Primary retail store branch setup"
+              value={formData.remarks}
+              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
               className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs font-bold text-foreground"
             />
           </div>
