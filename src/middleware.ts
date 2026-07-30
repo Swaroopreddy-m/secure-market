@@ -75,7 +75,7 @@ export default withAuth(
         return NextResponse.next();
       }
 
-      // Product Admin allowed modules
+      // Product Admin allowed modules & granular direct URL entry guarding
       if (role === "PRODUCT_ADMIN") {
         const allowed = [
           "/admin/product-admin",
@@ -85,6 +85,47 @@ export default withAuth(
         if (!isAllowed) {
           return NextResponse.redirect(new URL("/admin/product-admin", req.url));
         }
+
+        // Granular check against assigned permissions (token.department)
+        const userRights = (token.department as string || "")
+          .split(",")
+          .map((s: string) => s.trim().toLowerCase());
+
+        if (path === "/admin/product-admin" || path === "/admin/product-admin/") {
+          if (!userRights.includes("dashboard")) {
+            // If they don't even have dashboard, they are not allowed
+            return NextResponse.redirect(new URL("/", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/profile")) {
+          if (!userRights.includes("applications") && !userRights.includes("dashboard")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/merchant-users")) {
+          if (!userRights.includes("users") && !userRights.includes("merchants")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/roles")) {
+          if (!userRights.includes("roles")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/reports")) {
+          if (!userRights.includes("reports")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/notifications")) {
+          if (!userRights.includes("notifications")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/audit-logs")) {
+          if (!userRights.includes("audit logs") && !userRights.includes("audit")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        } else if (path.startsWith("/admin/product-admin/settings")) {
+          if (!userRights.includes("settings")) {
+            return NextResponse.redirect(new URL("/admin/product-admin", req.url));
+          }
+        }
+
         return NextResponse.next();
       }
 

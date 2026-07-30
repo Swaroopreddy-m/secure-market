@@ -402,6 +402,34 @@ async function main() {
     update: { value: "5" },
     create: { key: "PASSWORD_HISTORY_LIMIT", value: "5", description: "Number of passwords stored in history" }
   })
+
+  // Maker-checker and session configurations
+  const customConfigs = [
+    { key: "MAKER_CHECKER_MAKER_ENABLED", value: "true", description: "Whether the Maker action flow is enabled" },
+    { key: "MAKER_CHECKER_CHECKER_ENABLED", value: "true", description: "Whether Checker approval is required. If false, checker tabs disappear and users/roles are directly approved by makers." },
+    { key: "MAKER_CHECKER_DUAL_APPROVAL", value: "true", description: "Dual approval required: Maker cannot check own submissions" },
+    { key: "MAKER_CHECKER_BULK_APPROVAL", value: "true", description: "Whether bulk approvals are enabled for users" },
+    { key: "MAKER_CHECKER_RETURN_WORKFLOW", value: "true", description: "Enable workflow to return users for modifications" },
+    { key: "MAKER_CHECKER_REJECT_WORKFLOW", value: "true", description: "Enable reject user workflow" },
+    { key: "MAKER_CHECKER_APPROVAL_REMARKS_MANDATORY", value: "false", description: "Whether checker remarks are mandatory on approval" },
+    { key: "MAKER_CHECKER_RETURN_REMARKS_MANDATORY", value: "true", description: "Whether checker remarks are mandatory on return" },
+    { key: "MAKER_CHECKER_REJECT_REMARKS_MANDATORY", value: "true", description: "Whether checker remarks are mandatory on reject" },
+    { key: "MAKER_CHECKER_ROLE_MATRIX_CONFIRMATION", value: "true", description: "Require checker approval for roles matrix configuration" },
+    { key: "MAKER_CHECKER_BULK_CONFIRMATION", value: "true", description: "Whether bulk approvals are enabled for roles matrix" },
+    { key: "SESSION_AUTO_LOGOUT", value: "true", description: "Enable automatic session logout on inactivity" },
+    { key: "SESSION_TIMEOUT_MINUTES", value: "15", description: "Minutes of inactivity before logging out (Min: 5, Max: 120)" },
+    { key: "SESSION_WARNING_POPUP", value: "true", description: "Display countdown warning popup before timeout" },
+    { key: "SESSION_WARNING_BEFORE_TIMEOUT_MINUTES", value: "1", description: "Minutes of warning before session expires" }
+  ];
+
+  for (const cfg of customConfigs) {
+    await prisma.configuration.upsert({
+      where: { key: cfg.key },
+      update: {},
+      create: { key: cfg.key, value: cfg.value, description: cfg.description }
+    });
+  }
+
   console.log("System configurations seeded.")
 
   // 8. Seed credentials users

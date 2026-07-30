@@ -41,6 +41,14 @@ function LoginContent() {
     }
   }, [status, session, router, searchParams]);
 
+  // Check for expired session parameter
+  const [sessionExpired, setSessionExpired] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("expired") === "true") {
+      setSessionExpired(true);
+    }
+  }, [searchParams]);
+
   // Read saved username if Remember Me was selected
   useEffect(() => {
     const savedUsername = localStorage.getItem("rememberedUsername");
@@ -54,6 +62,7 @@ function LoginContent() {
     e.preventDefault();
     setIsSubmitting(true);
     setLoginError(null);
+    setSessionExpired(false); // clear expired warning on submission
 
     if (rememberMe) {
       localStorage.setItem("rememberedUsername", username);
@@ -83,6 +92,7 @@ function LoginContent() {
   const handleQuickLogin = async (user: string) => {
     setIsSubmitting(true);
     setLoginError(null);
+    setSessionExpired(false); // clear warning
     try {
       const res = await signIn("credentials", {
         username: user,
@@ -203,8 +213,14 @@ function LoginContent() {
             </span>
           </div>
 
+          {sessionExpired && (
+            <div className="bg-amber-50 border border-amber-200/50 text-amber-800 dark:bg-amber-950/30 dark:border-amber-900/30 dark:text-amber-400 p-3.5 rounded-2xl text-[11px] font-bold text-center">
+              Session Expired. Please Login Again.
+            </div>
+          )}
+
           {loginError && (
-            <div className="bg-rose-50 border border-rose-100 text-rose-650 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400 p-3.5 rounded-2xl text-[11px] font-bold text-center">
+            <div className="bg-rose-50 border border-rose-100 text-rose-650 dark:bg-rose-955/20 dark:border-rose-900/30 dark:text-rose-400 p-3.5 rounded-2xl text-[11px] font-bold text-center">
               {loginError === "ACCOUNT_LOCKED" 
                 ? "Account locked due to excessive failed attempts." 
                 : loginError === "CONCURRENT_SESSION_ACTIVE"

@@ -52,15 +52,18 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["SUPER_ADMIN"] },
 
-  // Product Admin
-  { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Applications", href: "/admin/product-admin?tab=applications", icon: Sliders, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Shops", href: "/admin/product-admin?tab=shops", icon: Building2, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Categories", href: "/admin/product-admin?tab=categories", icon: ListOrdered, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Products", href: "/admin/product-admin?tab=products", icon: ShoppingBag, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Users", href: "/admin/product-admin?tab=merchants", icon: Users, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Reports", href: "/admin/product-admin?tab=reports", icon: FileText, allowedRoles: ["PRODUCT_ADMIN"] },
-  { name: "Settings", href: "/admin/product-admin?tab=settings", icon: Settings, allowedRoles: ["PRODUCT_ADMIN"] },
+  // Product Admin Phase 3 Sub-pages
+  { name: "Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Application Dashboard", href: "/admin/product-admin/profile", icon: Sliders, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Create User", href: "/admin/product-admin/merchant-users/new", icon: UserPlus, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Confirm Users", href: "/admin/product-admin/merchant-users/confirm", icon: CheckSquare, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Merchant Users", href: "/admin/product-admin/merchant-users", icon: Users, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Roles & Matrix", href: "/admin/product-admin/roles", icon: ShieldCheck, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Roles & Matrix Confirmation", href: "/admin/product-admin/roles/confirm", icon: ShieldAlert, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Reports", href: "/admin/product-admin/reports", icon: FileText, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Notifications", href: "/admin/product-admin/notifications", icon: Bell, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Audit Logs", href: "/admin/product-admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Settings", href: "/admin/product-admin/settings", icon: Settings, allowedRoles: ["PRODUCT_ADMIN"] },
 
   // Market User (Merchant)
   { name: "Shop Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
@@ -91,6 +94,7 @@ export default function AdminShell({
   const [commandSearch, setCommandSearch] = useState("");
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [checkerEnabled, setCheckerEnabled] = useState(true);
   
   // Mock notifications state
   const [notifications, setNotifications] = useState([
@@ -98,6 +102,20 @@ export default function AdminShell({
     { id: "2", title: "API Limit Reached", desc: "SaaS Product Payments reached 95% of daily API call quota.", time: "1 hour ago", read: false, type: "warning" },
     { id: "3", title: "Database Backup Completed", desc: "Automatic local snapshot completed successfully.", time: "3 hours ago", read: true, type: "success" }
   ]);
+
+  // Load Configurations (for Maker-Checker settings & session warning check)
+  useEffect(() => {
+    const fetchConfigs = async () => {
+      try {
+        const res = await fetch("/api/auth/session-config");
+        const data = await res.json();
+        setCheckerEnabled(data.checkerEnabled === "true");
+      } catch (e) {
+        console.error("Failed to load session-config", e);
+      }
+    };
+    fetchConfigs();
+  }, []);
 
   // Filter items by role and granular access rights (tabs)
   const userRights = sessionUser.department
@@ -128,12 +146,16 @@ export default function AdminShell({
     }
     
     if (sessionUser.role === "PRODUCT_ADMIN") {
-      if (item.name === "Applications" && !userRights.includes("applications")) return false;
-      if (item.name === "Shops" && !userRights.includes("shops")) return false;
-      if (item.name === "Categories" && !userRights.includes("categories")) return false;
-      if (item.name === "Products" && !userRights.includes("products")) return false;
-      if (item.name === "Users" && !userRights.includes("merchants")) return false;
+      if (item.name === "Dashboard" && !userRights.includes("dashboard")) return false;
+      if (item.name === "Application Dashboard" && !userRights.includes("applications") && !userRights.includes("dashboard")) return false;
+      if (item.name === "Create User" && !userRights.includes("users") && !userRights.includes("merchants")) return false;
+      if (item.name === "Confirm Users" && (!checkerEnabled || (!userRights.includes("users") && !userRights.includes("merchants")))) return false;
+      if (item.name === "Merchant Users" && !userRights.includes("users") && !userRights.includes("merchants")) return false;
+      if (item.name === "Roles & Matrix" && !userRights.includes("roles")) return false;
+      if (item.name === "Roles & Matrix Confirmation" && (!checkerEnabled || !userRights.includes("roles"))) return false;
       if (item.name === "Reports" && !userRights.includes("reports")) return false;
+      if (item.name === "Notifications" && !userRights.includes("notifications")) return false;
+      if (item.name === "Audit Logs" && !userRights.includes("audit logs") && !userRights.includes("audit")) return false;
       if (item.name === "Settings" && !userRights.includes("settings")) return false;
     }
     
@@ -233,7 +255,97 @@ export default function AdminShell({
     ? "/admin/user"
     : "/admin";
 
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+
+  // Inactivity timeout handler
+  useEffect(() => {
+    const storageKey = "session_last_active";
+    let checkIntervalId: NodeJS.Timeout;
+
+    const initTimeout = async () => {
+      try {
+        const res = await fetch("/api/auth/session-config");
+        const config = await res.json();
+
+        if (config.autoLogout !== "true") return;
+
+        const timeoutMs = parseInt(config.timeoutMinutes || "15") * 60 * 1000;
+        const warningMs = parseInt(config.warningMinutes || "1") * 60 * 1000;
+        const warningPopupEnabled = config.warningPopup === "true";
+
+        localStorage.setItem(storageKey, Date.now().toString());
+
+        const handleActivity = () => {
+          localStorage.setItem(storageKey, Date.now().toString());
+        };
+
+        // Listen for activity events
+        window.addEventListener("mousemove", handleActivity);
+        window.addEventListener("keydown", handleActivity);
+        window.addEventListener("click", handleActivity);
+        window.addEventListener("scroll", handleActivity);
+
+        checkIntervalId = setInterval(async () => {
+          const lastActiveStr = localStorage.getItem(storageKey);
+          const lastActive = lastActiveStr ? parseInt(lastActiveStr) : Date.now();
+          const elapsed = Date.now() - lastActive;
+
+          if (elapsed >= timeoutMs) {
+            // Log out automatically
+            clearInterval(checkIntervalId);
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            try {
+              await fetch("/api/auth/session-config/logout-log", { method: "POST" });
+            } catch (e) {
+              console.error(e);
+            }
+
+            await signOut({ redirect: false });
+            window.location.href = "/login?expired=true";
+          } else if (warningPopupEnabled && elapsed >= (timeoutMs - warningMs)) {
+            const remainingSeconds = Math.ceil((timeoutMs - elapsed) / 1000);
+            if (remainingSeconds > 0) {
+              setCountdown(remainingSeconds);
+              setShowTimeoutWarning(true);
+            }
+          } else {
+            setShowTimeoutWarning(false);
+          }
+        }, 1500);
+
+        return () => {
+          window.removeEventListener("mousemove", handleActivity);
+          window.removeEventListener("keydown", handleActivity);
+          window.removeEventListener("click", handleActivity);
+          window.removeEventListener("scroll", handleActivity);
+          if (checkIntervalId) clearInterval(checkIntervalId);
+        };
+      } catch (e) {
+        console.error("Failed to initialize session timeout:", e);
+      }
+    };
+
+    initTimeout();
+  }, []);
+
+  const handleStayLoggedIn = async () => {
+    localStorage.setItem("session_last_active", Date.now().toString());
+    setShowTimeoutWarning(false);
+    // Keep NextAuth session alive on the server
+    await fetch("/api/auth/session");
+  };
+
   const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/session-config/logout-log?manual=true", { method: "POST" });
+    } catch (e) {
+      console.error("Logout log failed:", e);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
     await signOut({ redirect: false });
     window.location.href = "/";
   };
@@ -672,6 +784,53 @@ export default function AdminShell({
                     No modules found for "{commandSearch}"
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 6. Session Timeout Warning Modal */}
+      <AnimatePresence>
+        {showTimeoutWarning && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl z-50 p-6 space-y-4"
+            >
+              <div className="flex items-center gap-3 text-amber-500">
+                <AlertTriangle className="w-8 h-8 font-black" />
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">Session Expiring Soon</h3>
+              </div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Your session is about to expire due to inactivity. You will be automatically logged out in:
+              </p>
+              <div className="text-center py-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl">
+                <span className="text-3xl font-black text-slate-800 dark:text-slate-100 font-mono">
+                  {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSignOut}
+                  className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs"
+                >
+                  Logout Now
+                </button>
+                <button
+                  onClick={handleStayLoggedIn}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-600/25"
+                >
+                  Stay Logged In
+                </button>
               </div>
             </motion.div>
           </>
