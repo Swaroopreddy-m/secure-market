@@ -427,7 +427,8 @@ async function main() {
       email: "sarah.admin@securemarket.local",
       role: "SUPER_ADMIN",
       roleId: dbRoles["SUPER_ADMIN"].id,
-      department: "customers,users,reports,settings",
+      organizationId: defaultOrg.id,
+      department: "dashboard,organizations,applications,users,roles,reports,analytics,audit logs,notifications,settings",
       passwordHash: hashedPass
     },
     {
@@ -438,6 +439,7 @@ async function main() {
       email: "product.admin@securemarket.local",
       role: "PRODUCT_ADMIN",
       roleId: dbRoles["PRODUCT_ADMIN"].id,
+      organizationId: defaultOrg.id,
       department: "product-admin,merchant-accounts",
       passwordHash: hashedPass
     },

@@ -5,9 +5,9 @@ import { redirect, notFound } from "next/navigation";
 import OrganizationForm from "@/components/admin/OrganizationForm";
 
 interface EditOrgPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditOrganizationPage({ params }: EditOrgPageProps) {
@@ -17,7 +17,7 @@ export default async function EditOrganizationPage({ params }: EditOrgPageProps)
     redirect("/");
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   const org = await prisma.organization.findUnique({
     where: { id }

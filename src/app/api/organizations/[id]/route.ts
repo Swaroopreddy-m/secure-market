@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const orgUpdateSchema = z.object({
   name: z.string().min(1, "Organization name is required").optional(),
+  code: z.string().min(1, "Organization code is required").optional(),
   logo: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   subscription: z.string().optional(),
@@ -30,18 +31,46 @@ export async function PATCH(
     }
 
     const { id } = await params;
+    
+    // Fetch existing organization
+    const existing = await prisma.organization.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
+
     const body = await request.json();
     const data = orgUpdateSchema.parse(body);
+
+    // Verify unique code check
+    if (data.code && data.code !== existing.code) {
+      const duplicateCode = await prisma.organization.findUnique({
+        where: { code: data.code }
+      });
+      if (duplicateCode) {
+        return NextResponse.json({ error: "Organization Code already exists" }, { status: 400 });
+      }
+    }
+
+    // Verify unique domain check
+    if (data.domain && data.domain !== existing.domain) {
+      const duplicateDomain = await prisma.organization.findUnique({
+        where: { domain: data.domain }
+      });
+      if (duplicateDomain) {
+        return NextResponse.json({ error: "Domain name already registered" }, { status: 400 });
+      }
+    }
 
     const updateData: any = { ...data };
     if (data.expiryDate !== undefined) {
       updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;
     }
-
-    // If status is changed to SUSPENDED, DEACTIVATED, or INACTIVE, we should also lock/deactivate the Super Admin or users?
-    // The requirement says:
-    // Developer should be able to: Create Organization, Edit Organization, Delete Organization, Deactivate Organization, Activate Organization, Suspend Organization, Restore Organization.
-    // If we update the organization status, that is sufficient. We will update the status of the organization.
+    if (data.domain !== undefined) {
+      updateData.domain = data.domain || null;
+    }
     
     const updatedOrg = await prisma.organization.update({
       where: { id },
@@ -60,12 +89,12 @@ export async function PATCH(
     });
 
     return NextResponse.json(updatedOrg);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ORGANIZATION_PATCH]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Internal Error" }, { status: 500 });
   }
 }
 

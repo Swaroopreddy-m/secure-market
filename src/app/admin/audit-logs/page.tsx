@@ -19,8 +19,8 @@ export default async function AuditLogsPage() {
       where: isDeveloper 
         ? undefined 
         : {
-            module: {
-              in: ["DASHBOARD", "PRODUCTS", "CUSTOMERS", "USERS", "AUDIT", "AUTH"]
+            user: {
+              organizationId: session.user.organizationId || ""
             }
           },
       include: {

@@ -117,12 +117,26 @@ export async function POST(request: Request) {
           finalUserStatus = "ACTIVE";
         }
 
-        // 3. Update User's role matrix status
+        // 3. Compile approved permissions list
+        let departmentVal = user.department;
+        if (action === "APPROVE") {
+          const approvedPerms = await tx.superAdminPermission.findMany({
+            where: {
+              userId: id,
+              status: "APPROVED"
+            }
+          });
+          const modules = Array.from(new Set(approvedPerms.map(p => p.module.toLowerCase())));
+          departmentVal = modules.join(",");
+        }
+
+        // 4. Update User's role matrix status and department
         await tx.user.update({
           where: { id },
           data: {
             roleMatrixStatus: nextMatrixStatus,
             status: finalUserStatus,
+            department: departmentVal,
             checkerUsername
           }
         });

@@ -39,13 +39,18 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["DEVELOPER"] },
   
   // Super Admin Sidebar items
-  { name: "Admin Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
-  { name: "Users", href: "/admin/users", icon: Users, allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
-  { name: "Customers", href: "/admin/customers", icon: Building2, allowedRoles: ["SUPER_ADMIN"] },
-  { name: "Products (SaaS)", href: "/admin/products", icon: ShoppingBag, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Organization Profile", href: "/admin/organization-profile", icon: Building2, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Applications", href: "/admin/applications", icon: Sliders, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Create Product Admin", href: "/admin/product-admin/new", icon: UserPlus, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Confirm Product Admin", href: "/admin/product-admin/confirm", icon: CheckSquare, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Roles & Matrix", href: "/admin/product-admin/roles", icon: ShieldCheck, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Roles & Matrix Confirmation", href: "/admin/product-admin/roles/confirm", icon: ShieldAlert, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Reports", href: "/admin/reports", icon: FileText, allowedRoles: ["SUPER_ADMIN"] },
-  { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Analytics", href: "/admin/analytics", icon: BarChart3, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["SUPER_ADMIN"] },
   { name: "Notifications", href: "/admin/notifications", icon: Bell, allowedRoles: ["SUPER_ADMIN"] },
+  { name: "Settings", href: "/admin/settings", icon: Settings, allowedRoles: ["SUPER_ADMIN"] },
 
   // Product Admin
   { name: "Product Dashboard", href: "/admin/product-admin", icon: LayoutDashboard, allowedRoles: ["PRODUCT_ADMIN"] },
@@ -108,11 +113,18 @@ export default function AdminShell({
 
     // 3. Filter by granular Access Rights (Tabs) stored in department field
     if (sessionUser.role === "SUPER_ADMIN") {
-      if (item.name === "Customers" && !userRights.includes("customers")) return false;
-      if (item.name === "Users" && !userRights.includes("users")) return false;
+      if (item.name === "Dashboard" && !userRights.includes("dashboard")) return false;
+      if (item.name === "Organization Profile" && !userRights.includes("organizations")) return false;
+      if (item.name === "Applications" && !userRights.includes("applications")) return false;
+      if (item.name === "Create Product Admin" && !userRights.includes("users")) return false;
+      if (item.name === "Confirm Product Admin" && !userRights.includes("users")) return false;
+      if (item.name === "Roles & Matrix" && !userRights.includes("roles")) return false;
+      if (item.name === "Roles & Matrix Confirmation" && !userRights.includes("roles")) return false;
       if (item.name === "Reports" && !userRights.includes("reports")) return false;
+      if (item.name === "Analytics" && !userRights.includes("analytics")) return false;
+      if (item.name === "Audit Logs" && !userRights.includes("audit logs")) return false;
+      if (item.name === "Notifications" && !userRights.includes("notifications")) return false;
       if (item.name === "Settings" && !userRights.includes("settings")) return false;
-      if (item.name === "Products (SaaS)" && !userRights.includes("products")) return false;
     }
     
     if (sessionUser.role === "PRODUCT_ADMIN") {

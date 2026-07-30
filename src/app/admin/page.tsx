@@ -284,76 +284,146 @@ export default async function AdminDashboard() {
   // SUPER ADMIN DASHBOARD VIEW
   // ----------------------------------------------------
   if (role === "SUPER_ADMIN") {
+    const orgId = session.user.organizationId || "";
+
+    // 1. Fetch organization details
+    const organization = orgId
+      ? await prisma.organization.findUnique({
+          where: { id: orgId },
+          include: { applications: true }
+        })
+      : null;
+
+    // 2. Fetch statistics
+    const [
+      totalProductAdmins,
+      activeProductAdmins,
+      inactiveProductAdmins,
+      pendingApprovals,
+      pendingRoleConfirmations,
+      activeUsers,
+      productsCount,
+      shopsCount,
+      ordersCount,
+      orgAuditLogs,
+      orgActivityLogs
+    ] = await Promise.all([
+      prisma.user.count({ where: { role: "PRODUCT_ADMIN", organizationId: orgId } }),
+      prisma.user.count({ where: { role: "PRODUCT_ADMIN", status: "ACTIVE", organizationId: orgId } }),
+      prisma.user.count({ where: { role: "PRODUCT_ADMIN", status: { in: ["INACTIVE", "LOCKED"] }, organizationId: orgId } }),
+      prisma.user.count({ where: { role: "PRODUCT_ADMIN", userApprovalStatus: "PENDING", organizationId: orgId } }),
+      prisma.user.count({ where: { role: "PRODUCT_ADMIN", roleMatrixStatus: "PENDING", organizationId: orgId } }),
+      prisma.user.count({ where: { role: "USER", status: "ACTIVE", organizationId: orgId } }),
+      prisma.storeProduct.count({ where: { organizationId: orgId } }),
+      prisma.shop.count({ where: { organizationId: orgId } }),
+      prisma.order.count({ where: { organizationId: orgId } }),
+      prisma.auditLog.findMany({
+        where: { user: { organizationId: orgId } },
+        take: 5,
+        orderBy: { timestamp: "desc" },
+        include: { user: true }
+      }),
+      prisma.activityLog.findMany({
+        where: { user: { organizationId: orgId } },
+        take: 5,
+        orderBy: { timestamp: "desc" },
+        include: { user: true }
+      })
+    ]);
+
+    const categoriesCount = (await prisma.storeProduct.groupBy({
+      by: ["category"],
+      where: { organizationId: orgId }
+    })).length;
+
     const superWidgets = [
-      { name: "Total Users", value: totalUsers, icon: Users, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
-      { name: "Subscriptions Active", value: totalCustomers, icon: Building2, color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30" },
-      { name: "Total SaaS Products", value: totalSaaSProducts, icon: ShoppingBag, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" },
-      { name: "Monthly SaaS Revenue", value: "₹245,000", icon: DollarSign, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" }
+      { name: "Total Product Admins", value: totalProductAdmins, icon: Users, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+      { name: "Active Product Admins", value: activeProductAdmins, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
+      { name: "Inactive Product Admins", value: inactiveProductAdmins, icon: AlertTriangle, color: "text-rose-600 bg-rose-50 dark:bg-rose-950/30" },
+      { name: "Pending Approvals", value: pendingApprovals, icon: Clock, color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30" },
+      { name: "Pending Role Confirmations", value: pendingRoleConfirmations, icon: ShieldCheck, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30" },
+      { name: "Active Users (Merchants)", value: activeUsers, icon: Users, color: "text-teal-600 bg-teal-50 dark:bg-teal-950/30" },
+      { name: "Products Count", value: productsCount, icon: ShoppingBag, color: "text-pink-600 bg-pink-50 dark:bg-pink-950/30" },
+      { name: "Shops Count", value: shopsCount, icon: Building2, color: "text-orange-600 bg-orange-50 dark:bg-orange-950/30" },
+      { name: "Categories Count", value: categoriesCount, icon: Database, color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30" },
+      { name: "Orders Count", value: ordersCount, icon: ListOrdered, color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30" }
     ];
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-8 animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Super Admin Portal</h2>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Manage tenants, user permissions, customer licenses and business reports.</p>
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Super Admin Dashboard</h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">View real-time statistics and administrative summary of your assigned Organization.</p>
           </div>
-          <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-full text-xs font-bold shadow-sm">
-            <Lock className="w-4 h-4" /> Business Admin Panel
+          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 px-4 py-2 rounded-full text-xs font-bold shadow-sm">
+            <Building2 className="w-4 h-4" /> {organization?.name || "My Organization"}
           </div>
         </div>
 
-        {/* Locked message for Server settings */}
-        <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-3xl flex items-center gap-3">
-          <Lock className="w-5 h-5 text-amber-500 flex-shrink-0" />
-          <p className="text-xs font-bold text-amber-700 dark:text-amber-400 leading-normal">
-            <strong>Security Isolation Note:</strong> System metrics, database server configurations, deployments, and environmental details are restricted to Developer-role holders only.
-          </p>
+        {/* Organization Details Panel */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm">
+          <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wider">Organization Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+            <div className="space-y-1">
+              <span className="text-slate-400 font-bold">Organization Name</span>
+              <p className="font-black text-sm text-slate-800 dark:text-slate-200">{organization?.name || "N/A"}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-slate-400 font-bold">Organization Code</span>
+              <p className="font-mono font-bold text-slate-800 dark:text-slate-200">{organization?.code || "N/A"}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-slate-400 font-bold">Subscription Tier</span>
+              <span className="inline-block mt-0.5 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-wider">
+                {organization?.subscription || "FREE"}
+              </span>
+            </div>
+            <div className="md:col-span-3 space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 font-bold">Description</span>
+              <p className="text-slate-600 dark:text-slate-400 font-medium">{organization?.description || "No description provided."}</p>
+            </div>
+          </div>
         </div>
 
         {/* Widgets Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {superWidgets.map((w, i) => (
-            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm flex items-center gap-4 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all group">
-              <div className={`p-4 rounded-2xl ${w.color} transition-transform group-hover:scale-105`}>
-                <w.icon className="w-6 h-6" />
+            <div key={i} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm flex items-center gap-4 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all group">
+              <div className={`p-3 rounded-2xl ${w.color} transition-transform group-hover:scale-105 flex-shrink-0`}>
+                <w.icon className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{w.name}</p>
-                <p className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{w.value}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest truncate">{w.name}</p>
+                <p className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight mt-0.5">{w.value}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Charts Section */}
+        {/* Audits and Activity Rows */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <BarChart data={mockDau} />
-          <PieChart data={mockCustomerDistribution} />
-        </div>
-
-        {/* Business Audit Logs & Users */}
-        <div className="grid grid-cols-1 gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm">
-          <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 mb-4 flex items-center justify-between">
-            Recent Customer Audit Logs
-            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full">Business Audits</span>
-          </h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <th className="pb-3">Timestamp</th>
-                  <th className="pb-3">User</th>
-                  <th className="pb-3">Action</th>
-                  <th className="pb-3">Module</th>
-                  <th className="pb-3 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="text-xs divide-y divide-slate-50 dark:divide-slate-800/50">
-                {recentAuditLogs
-                  .filter(l => ["DASHBOARD", "PRODUCTS", "CUSTOMERS", "USERS", "AUDIT"].includes(l.module))
-                  .map((log) => (
+          
+          {/* Audit Logs */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm space-y-4">
+            <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center justify-between">
+              Recent System Audit Logs
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full">Security audits</span>
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <th className="pb-3">Timestamp</th>
+                    <th className="pb-3">User</th>
+                    <th className="pb-3">Action</th>
+                    <th className="pb-3">Module</th>
+                    <th className="pb-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-50 dark:divide-slate-800/50">
+                  {orgAuditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="py-3 font-mono text-[10px] text-slate-400">
                         {new Date(log.timestamp).toLocaleTimeString()}
@@ -364,7 +434,7 @@ export default async function AdminDashboard() {
                       <td className="py-3 text-slate-600 dark:text-slate-400 font-mono text-[10px]">
                         {log.action}
                       </td>
-                      <td className="py-3 text-slate-500 dark:text-slate-500">
+                      <td className="py-3 text-slate-550 dark:text-slate-500">
                         {log.module}
                       </td>
                       <td className="py-3 text-right">
@@ -376,11 +446,60 @@ export default async function AdminDashboard() {
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
+                  {orgAuditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-450 font-bold">No recent audit logs.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
+          {/* Activity Logs */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm space-y-4">
+            <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center justify-between">
+              Recent Activity Logs
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30 px-2 py-0.5 rounded-full">Activities</span>
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <th className="pb-3">Timestamp</th>
+                    <th className="pb-3">User</th>
+                    <th className="pb-3">Action</th>
+                    <th className="pb-3">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs divide-y divide-slate-50 dark:divide-slate-800/50">
+                  {orgActivityLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
+                      <td className="py-3 font-mono text-[10px] text-slate-400">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </td>
+                      <td className="py-3 font-bold text-slate-700 dark:text-slate-300">
+                        {log.user?.name || "System"}
+                      </td>
+                      <td className="py-3 text-slate-655 dark:text-slate-400 font-mono text-[10px]">
+                        {log.action}
+                      </td>
+                      <td className="py-3 text-slate-600 dark:text-slate-400 truncate max-w-[150px]">
+                        {log.details || "No details provided."}
+                      </td>
+                    </tr>
+                  ))}
+                  {orgActivityLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-slate-450 font-bold">No recent activities recorded.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
       </div>
     );
   }
