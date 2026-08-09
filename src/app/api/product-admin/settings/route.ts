@@ -18,7 +18,20 @@ const CONFIG_KEYS = [
   "SESSION_AUTO_LOGOUT",
   "SESSION_TIMEOUT_MINUTES",
   "SESSION_WARNING_POPUP",
-  "SESSION_WARNING_BEFORE_TIMEOUT_MINUTES"
+  "SESSION_WARNING_BEFORE_TIMEOUT_MINUTES",
+  "ENABLE_PRODUCT_MAKER_CHECKER",
+  "ENABLE_DIRECT_PUBLISH",
+  "ENABLE_CATEGORY_APPROVAL",
+  "ENABLE_INVENTORY_APPROVAL",
+  "ENABLE_PRICE_APPROVAL",
+  "ENABLE_IMAGE_APPROVAL",
+  "ENABLE_DELETE_APPROVAL",
+  "ENABLE_BULK_UPLOAD",
+  "ENABLE_BULK_DELETE",
+  "ENABLE_PRODUCT_VERSION_HISTORY",
+  "ENABLE_PRODUCT_RESTORE",
+  "ENABLE_PRODUCT_AUDIT",
+  "DEFAULT_APPROVAL_MODE"
 ];
 
 export async function GET(request: Request) {
@@ -51,10 +64,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = session.user as any;
+
     // Check if Product Admin has Settings permission
     const hasSettingsPermission = await prisma.superAdminPermission.findFirst({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         module: "Settings",
         status: "APPROVED"
       }
@@ -72,25 +87,29 @@ export async function POST(request: Request) {
 
     for (const key of keysToUpdate) {
       const val = String(body[key]);
-      
-      // Perform validation bounds on session timeouts
-      if (key === "SESSION_TIMEOUT_MINUTES") {
-        const minVal = parseInt(val);
-        if (isNaN(minVal) || minVal < 5 || minVal > 120) {
-          return NextResponse.json({ error: "Session timeout must be between 5 and 120 minutes." }, { status: 400 });
-        }
-      }
 
       await prisma.configuration.update({
         where: { key },
         data: { value: val }
       });
+
+      if (key === "MAKER_CHECKER_CHECKER_ENABLED") {
+        // Synchronize merchant checker configs
+        await prisma.configuration.update({
+          where: { key: "ENABLE_PRODUCT_MAKER_CHECKER" },
+          data: { value: val }
+        });
+        await prisma.configuration.update({
+          where: { key: "DEFAULT_APPROVAL_MODE" },
+          data: { value: val === "true" ? "MAKER_CHECKER" : "DIRECT_PUBLISH" }
+        });
+      }
     }
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         action: "UPDATE_CONFIG",
         module: "SETTINGS",
         status: "SUCCESS",

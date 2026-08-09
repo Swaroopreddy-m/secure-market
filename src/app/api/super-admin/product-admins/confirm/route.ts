@@ -93,8 +93,11 @@ export async function POST(request: Request) {
 
       if (!targetUser) continue;
 
-      // Enterprise Policy: Maker cannot be Checker of their own submissions
-      if (targetUser.makerUsername === checkerUsername) {
+      // Enterprise Policy: Maker cannot be Checker of their own submissions if dual approval is enforced
+      const dualApprovalConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_DUAL_APPROVAL" } });
+      const dualApproval = dualApprovalConfig?.value === "true";
+
+      if (dualApproval && targetUser.makerUsername === checkerUsername) {
         return NextResponse.json({ 
           error: `Security Policy Violation: You cannot approve/reject/return user (${targetUser.username}) because you originally created/submitted this record.` 
         }, { status: 400 });

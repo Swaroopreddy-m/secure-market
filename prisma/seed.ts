@@ -419,7 +419,20 @@ async function main() {
     { key: "SESSION_AUTO_LOGOUT", value: "true", description: "Enable automatic session logout on inactivity" },
     { key: "SESSION_TIMEOUT_MINUTES", value: "15", description: "Minutes of inactivity before logging out (Min: 5, Max: 120)" },
     { key: "SESSION_WARNING_POPUP", value: "true", description: "Display countdown warning popup before timeout" },
-    { key: "SESSION_WARNING_BEFORE_TIMEOUT_MINUTES", value: "1", description: "Minutes of warning before session expires" }
+    { key: "SESSION_WARNING_BEFORE_TIMEOUT_MINUTES", value: "1", description: "Minutes of warning before session expires" },
+    { key: "ENABLE_PRODUCT_MAKER_CHECKER", value: "true", description: "Whether Merchant product changes require Product Admin approval" },
+    { key: "ENABLE_DIRECT_PUBLISH", value: "false", description: "Whether Merchant changes bypass approval and publish directly" },
+    { key: "ENABLE_CATEGORY_APPROVAL", value: "true", description: "Require approval for category changes" },
+    { key: "ENABLE_INVENTORY_APPROVAL", value: "true", description: "Require approval for inventory changes" },
+    { key: "ENABLE_PRICE_APPROVAL", value: "true", description: "Require approval for price changes" },
+    { key: "ENABLE_IMAGE_APPROVAL", value: "true", description: "Require approval for image uploads/changes" },
+    { key: "ENABLE_DELETE_APPROVAL", value: "true", description: "Require approval for product deletion" },
+    { key: "ENABLE_BULK_UPLOAD", value: "true", description: "Enable bulk upload for Merchant Users" },
+    { key: "ENABLE_BULK_DELETE", value: "true", description: "Enable bulk delete for Merchant Users" },
+    { key: "ENABLE_PRODUCT_VERSION_HISTORY", value: "true", description: "Keep product history versions" },
+    { key: "ENABLE_PRODUCT_RESTORE", value: "true", description: "Enable product version restore" },
+    { key: "ENABLE_PRODUCT_AUDIT", value: "true", description: "Audit product modifications" },
+    { key: "DEFAULT_APPROVAL_MODE", value: "MAKER_CHECKER", description: "Default product approval mode (MAKER_CHECKER or DIRECT_PUBLISH)" }
   ];
 
   for (const cfg of customConfigs) {

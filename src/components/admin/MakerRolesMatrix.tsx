@@ -113,6 +113,27 @@ export default function MakerRolesMatrix({ superAdmins }: MakerRolesMatrixProps)
     });
   };
 
+  const isModuleAllChecked = (mod: string) => {
+    return ACTIONS.every(act => isChecked(mod, act));
+  };
+
+  const handleToggleModuleAll = (mod: string) => {
+    if (userStatus === "PENDING") {
+      setError("Pending permissions matrix cannot be changed until Checker decision is logged.");
+      return;
+    }
+    const allChecked = isModuleAllChecked(mod);
+    setMappings(prev => {
+      const filtered = prev.filter(m => m.module !== mod);
+      if (allChecked) {
+        return filtered;
+      } else {
+        const newMappings = ACTIONS.map(act => ({ module: mod, action: act, status: "DRAFT" }));
+        return [...filtered, ...newMappings];
+      }
+    });
+  };
+
   // Matrix Bulk Buttons
   const handleGrantAll = () => {
     if (userStatus === "PENDING") return;
@@ -192,7 +213,7 @@ export default function MakerRolesMatrix({ superAdmins }: MakerRolesMatrixProps)
           <select
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
-            className="w-64 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-2 px-3 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+            className="w-64 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl py-2 px-3 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
           >
             {superAdmins.map((u) => (
               <option key={u.id} value={u.id}>
@@ -236,7 +257,7 @@ export default function MakerRolesMatrix({ superAdmins }: MakerRolesMatrixProps)
           {/* Loader Overlay */}
           {isFetchLoading && (
             <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[1px] flex items-center justify-center z-10">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-650" />
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-655" />
             </div>
           )}
 
@@ -245,6 +266,7 @@ export default function MakerRolesMatrix({ superAdmins }: MakerRolesMatrixProps)
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-4 py-5 w-12 text-center">Select</th>
                   <th className="px-6 py-5 min-w-[200px]">Module Name</th>
                   {ACTIONS.map(act => (
                     <th key={act} className="px-3 py-5 text-center min-w-[90px]">
@@ -253,9 +275,18 @@ export default function MakerRolesMatrix({ superAdmins }: MakerRolesMatrixProps)
                   ))}
                 </tr>
               </thead>
-              <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-850">
+              <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-855">
                 {MODULES.map((modName) => (
                   <tr key={modName} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                    <td className="px-4 py-4 w-12 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isModuleAllChecked(modName)}
+                        disabled={userStatus === "PENDING" || isFetchLoading}
+                        onChange={() => handleToggleModuleAll(modName)}
+                        className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 w-4 h-4 cursor-pointer disabled:opacity-50"
+                      />
+                    </td>
                     <td className="px-6 py-4 font-extrabold text-slate-800 dark:text-slate-200">
                       {modName}
                     </td>

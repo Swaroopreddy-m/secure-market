@@ -430,7 +430,7 @@ model SuperAdminPermission {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   module          String   // e.g. "Dashboard", "Organizations", ...
-  action          String   // e.g. "View", "Create", "Edit", ...
+  action          String   // e.g. "View", "Create", ...
   status          String   @default("PENDING_CONFIRMATION") // PENDING_CONFIRMATION, APPROVED, REJECTED, RETURNED
   remarks         String?
   makerUsername   String?
@@ -439,4 +439,152 @@ model SuperAdminPermission {
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, module, action])
+}
+
+model MerchantCategory {
+  id                 String   @id @default(cuid())
+  name               String
+  code               String   @unique
+  description        String?
+  displayOrder       Int      @default(0)
+  status             String   @default("ACTIVE")
+  approvalStatus     String   @default("DRAFT")
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userId             String
+  applicationId      String?
+  organizationId     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  products           MerchantProduct[]
+}
+
+model MerchantProduct {
+  id                 String   @id @default(cuid())
+  categoryId         String
+  category           MerchantCategory @relation(fields: [categoryId], references: [id])
+  name               String
+  code               String   @unique
+  brand              String?
+  sku                String?
+  barcode            String?
+  shortDescription   String?
+  longDescription    String?
+  unit               String?
+  weight             Float?
+  dimensions         String?
+  tax                Float    @default(0.0)
+  hsnCode            String?
+  status             String   @default("ACTIVE")
+  approvalStatus     String   @default("DRAFT")
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userId             String
+  applicationId      String?
+  organizationId     String?
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  inventories        MerchantInventory[]
+  prices             MerchantPrice[]
+  images             MerchantImage[]
+}
+
+model MerchantInventory {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            MerchantProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batchNumber        String?
+  quantity           Int      @default(0)
+  availableQuantity  Int      @default(0)
+  minimumStock       Int      @default(0)
+  maximumStock       Int      @default(0)
+  purchasePrice      Float    @default(0.0)
+  sellingPrice       Float    @default(0.0)
+  discount           Float    @default(0.0)
+  offerPrice         Float    @default(0.0)
+  expiryDate         DateTime?
+  manufacturingDate  DateTime?
+  supplier           String?
+  warehouse          String?
+  status             String   @default("ACTIVE")
+  approvalStatus     String   @default("DRAFT")
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userId             String
+  applicationId      String?
+  organizationId     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model MerchantPrice {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            MerchantProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mrp                Float    @default(0.0)
+  sellingPrice       Float    @default(0.0)
+  offerPrice         Float    @default(0.0)
+  discount           Float    @default(0.0)
+  gst                Float    @default(0.0)
+  currency           String   @default("USD")
+  effectiveFrom      DateTime?
+  effectiveTo        DateTime?
+  status             String   @default("ACTIVE")
+  approvalStatus     String   @default("DRAFT")
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userId             String
+  applicationId      String?
+  organizationId     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model MerchantImage {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            MerchantProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url                String
+  isPrimary          Boolean  @default(false)
+  isThumbnail        Boolean  @default(false)
+  status             String   @default("ACTIVE")
+  approvalStatus     String   @default("DRAFT")
+  remarks            String?
+  makerUsername      String?
+  checkerUsername    String?
+  userId             String
+  applicationId      String?
+  organizationId     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model MerchantProductHistory {
+  id               String   @id @default(cuid())
+  productId        String
+  name             String
+  categoryId       String
+  brand            String?
+  sku              String?
+  barcode          String?
+  shortDescription String?
+  longDescription  String?
+  unit             String?
+  weight           Float?
+  dimensions       String?
+  tax              Float?
+  hsnCode          String?
+  status           String
+  version          Int
+  ip               String?
+  browser          String?
+  action           String
+  details          String?
+  changedBy        String
+  timestamp        DateTime @default(now())
 }

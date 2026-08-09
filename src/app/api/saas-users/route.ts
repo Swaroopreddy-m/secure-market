@@ -100,6 +100,13 @@ export async function POST(request: Request) {
 
     const name = `${validatedData.firstName || ""} ${validatedData.lastName || ""}`.trim() || validatedData.username;
 
+    const checkerConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_CHECKER_ENABLED" } });
+    const checkerEnabled = checkerConfig?.value !== "false";
+
+    const userApprovalStatus = checkerEnabled ? validatedData.userApprovalStatus : "APPROVED";
+    const roleMatrixStatus = checkerEnabled ? "DRAFT" : "APPROVED";
+    const finalStatus = checkerEnabled ? "PENDING" : "ACTIVE";
+
     // Create user. If Developer is the creator, the user approval status is set from request (DRAFT or PENDING).
     // The user's status begins as "PENDING" (or "INACTIVE"), not immediately "ACTIVE" until approved by the Checker.
     const user = await prisma.user.create({
@@ -112,7 +119,7 @@ export async function POST(request: Request) {
         role: validatedData.role,
         roleId: roleRecord?.id || null,
         department: validatedData.department || null,
-        status: "PENDING", // Starts inactive pending Maker-Checker approvals
+        status: finalStatus, // Starts active directly if checker is disabled
         organizationId: session.user.role === "DEVELOPER" ? (validatedData.organizationId || null) : session.user.organizationId,
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
@@ -120,8 +127,8 @@ export async function POST(request: Request) {
         designation: validatedData.designation,
         remarks: validatedData.remarks,
         makerUsername: makerUsername,
-        userApprovalStatus: validatedData.userApprovalStatus, // DRAFT or PENDING
-        roleMatrixStatus: "DRAFT", // Matrix starts as draft until explicitly modified in Roles & Matrix
+        userApprovalStatus: userApprovalStatus, // DRAFT, PENDING, or APPROVED
+        roleMatrixStatus: roleMatrixStatus, // Matrix starts as APPROVED directly if checker disabled
       }
     });
 

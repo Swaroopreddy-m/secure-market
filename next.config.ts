@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  allowedDevOrigins: ['10.56.152.128', '172.29.162.128', '10.217.177.236'],
+  allowedDevOrigins: ['10.56.152.128', '172.29.162.128', '10.217.177.236', '10.224.225.236'],
 };
 
 export default nextConfig;

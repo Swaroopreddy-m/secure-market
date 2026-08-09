@@ -129,7 +129,7 @@ export default withAuth(
         return NextResponse.next();
       }
 
-      // User (Shop Merchant) allowed modules
+      // User (Shop Merchant) allowed modules & direct URL entry guards
       if (role === "USER") {
         const allowed = [
           "/admin/user"
@@ -138,6 +138,50 @@ export default withAuth(
         if (!isAllowed) {
           return NextResponse.redirect(new URL("/admin/user", req.url));
         }
+
+        const userRights = (token.department as string || "")
+          .split(",")
+          .map((s: string) => s.trim().toLowerCase());
+
+        if (path === "/admin/user" || path === "/admin/user/") {
+          // Dashboard check
+          if (!userRights.includes("dashboard")) {
+            return NextResponse.redirect(new URL("/", req.url));
+          }
+        } else if (path.startsWith("/admin/user/categories")) {
+          if (!userRights.includes("categories") && !userRights.includes("category view")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/products")) {
+          if (!userRights.includes("products") && !userRights.includes("product view")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/inventory")) {
+          if (!userRights.includes("inventory") && !userRights.includes("inventory view")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/images")) {
+          if (!userRights.includes("product images") && !userRights.includes("images") && !userRights.includes("image upload")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/prices")) {
+          if (!userRights.includes("price management") && !userRights.includes("prices") && !userRights.includes("price view")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/reports")) {
+          if (!userRights.includes("reports")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/notifications")) {
+          if (!userRights.includes("notifications")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        } else if (path.startsWith("/admin/user/settings")) {
+          if (!userRights.includes("settings")) {
+            return NextResponse.redirect(new URL("/admin/user", req.url));
+          }
+        }
+
         return NextResponse.next();
       }
 

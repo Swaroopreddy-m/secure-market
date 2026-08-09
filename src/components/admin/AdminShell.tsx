@@ -10,7 +10,7 @@ import {
   Building2, ShieldCheck, FileSpreadsheet, Terminal, Database, BarChart3,
   Cpu, Sliders, FileText, History, Activity, AlertTriangle, Monitor,
   Plus, Check, Sparkles, User as UserIcon, Play, LogOut, CheckSquare,
-  UserPlus, ShieldAlert
+  UserPlus, ShieldAlert, Folder, Image as ImageIcon, Tag
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -60,17 +60,22 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { name: "Merchant Users", href: "/admin/product-admin/merchant-users", icon: Users, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Roles & Matrix", href: "/admin/product-admin/roles", icon: ShieldCheck, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Roles & Matrix Confirmation", href: "/admin/product-admin/roles/confirm", icon: ShieldAlert, allowedRoles: ["PRODUCT_ADMIN"] },
+  { name: "Merchant Requests", href: "/admin/product-admin/merchant-requests", icon: CheckSquare, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Reports", href: "/admin/product-admin/reports", icon: FileText, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Notifications", href: "/admin/product-admin/notifications", icon: Bell, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Audit Logs", href: "/admin/product-admin/audit-logs", icon: FileSpreadsheet, allowedRoles: ["PRODUCT_ADMIN"] },
   { name: "Settings", href: "/admin/product-admin/settings", icon: Settings, allowedRoles: ["PRODUCT_ADMIN"] },
 
   // Market User (Merchant)
-  { name: "Shop Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
-  { name: "Products", href: "/admin/user?tab=inventory", icon: ShoppingBag, allowedRoles: ["USER"] },
-  { name: "Inventory", href: "/admin/user?tab=inventory", icon: Sliders, allowedRoles: ["USER"] },
-  { name: "Orders Assigned", href: "/admin/user?tab=orders", icon: ListOrdered, allowedRoles: ["USER"] },
-  { name: "Settings", href: "/admin/user?tab=settings", icon: Settings, allowedRoles: ["USER"] }
+  { name: "Dashboard", href: "/admin/user", icon: LayoutDashboard, allowedRoles: ["USER"] },
+  { name: "Categories", href: "/admin/user/categories", icon: Folder, allowedRoles: ["USER"] },
+  { name: "Products", href: "/admin/user/products", icon: ShoppingBag, allowedRoles: ["USER"] },
+  { name: "Inventory", href: "/admin/user/inventory", icon: Sliders, allowedRoles: ["USER"] },
+  { name: "Product Images", href: "/admin/user/images", icon: ImageIcon, allowedRoles: ["USER"] },
+  { name: "Price Management", href: "/admin/user/prices", icon: Tag, allowedRoles: ["USER"] },
+  { name: "Reports", href: "/admin/user/reports", icon: FileText, allowedRoles: ["USER"] },
+  { name: "Notifications", href: "/admin/user/notifications", icon: Bell, allowedRoles: ["USER"] },
+  { name: "Settings", href: "/admin/user/settings", icon: Settings, allowedRoles: ["USER"] }
 ];
 
 export default function AdminShell({
@@ -126,8 +131,12 @@ export default function AdminShell({
     // 1. Check role access first
     if (!item.allowedRoles.includes(sessionUser.role)) return false;
 
-    // 2. Developer has unrestricted access
-    if (sessionUser.role === "DEVELOPER") return true;
+    // 2. Developer has unrestricted access except checking if checker is disabled
+    if (sessionUser.role === "DEVELOPER") {
+      if (item.name === "Confirm Users" && !checkerEnabled) return false;
+      if (item.name === "Roles & Matrix Confirmation" && !checkerEnabled) return false;
+      return true;
+    }
 
     // 3. Filter by granular Access Rights (Tabs) stored in department field
     if (sessionUser.role === "SUPER_ADMIN") {
@@ -135,9 +144,9 @@ export default function AdminShell({
       if (item.name === "Organization Profile" && !userRights.includes("organizations")) return false;
       if (item.name === "Applications" && !userRights.includes("applications")) return false;
       if (item.name === "Create Product Admin" && !userRights.includes("users")) return false;
-      if (item.name === "Confirm Product Admin" && !userRights.includes("users")) return false;
+      if (item.name === "Confirm Product Admin" && (!checkerEnabled || !userRights.includes("users"))) return false;
       if (item.name === "Roles & Matrix" && !userRights.includes("roles")) return false;
-      if (item.name === "Roles & Matrix Confirmation" && !userRights.includes("roles")) return false;
+      if (item.name === "Roles & Matrix Confirmation" && (!checkerEnabled || !userRights.includes("roles"))) return false;
       if (item.name === "Reports" && !userRights.includes("reports")) return false;
       if (item.name === "Analytics" && !userRights.includes("analytics")) return false;
       if (item.name === "Audit Logs" && !userRights.includes("audit logs")) return false;
@@ -153,6 +162,7 @@ export default function AdminShell({
       if (item.name === "Merchant Users" && !userRights.includes("users") && !userRights.includes("merchants")) return false;
       if (item.name === "Roles & Matrix" && !userRights.includes("roles")) return false;
       if (item.name === "Roles & Matrix Confirmation" && (!checkerEnabled || !userRights.includes("roles"))) return false;
+      if (item.name === "Merchant Requests" && !userRights.includes("products")) return false;
       if (item.name === "Reports" && !userRights.includes("reports")) return false;
       if (item.name === "Notifications" && !userRights.includes("notifications")) return false;
       if (item.name === "Audit Logs" && !userRights.includes("audit logs") && !userRights.includes("audit")) return false;
@@ -160,9 +170,14 @@ export default function AdminShell({
     }
     
     if (sessionUser.role === "USER") {
-      if (item.name === "Products" && !userRights.includes("inventory")) return false;
-      if (item.name === "Inventory" && !userRights.includes("inventory")) return false;
-      if (item.name === "Orders Assigned" && !userRights.includes("orders")) return false;
+      if (item.name === "Dashboard" && !userRights.includes("dashboard")) return false;
+      if (item.name === "Categories" && !userRights.includes("categories") && !userRights.includes("category view")) return false;
+      if (item.name === "Products" && !userRights.includes("products") && !userRights.includes("product view")) return false;
+      if (item.name === "Inventory" && !userRights.includes("inventory") && !userRights.includes("inventory view")) return false;
+      if (item.name === "Product Images" && !userRights.includes("product images") && !userRights.includes("images") && !userRights.includes("image upload")) return false;
+      if (item.name === "Price Management" && !userRights.includes("price management") && !userRights.includes("prices") && !userRights.includes("price view")) return false;
+      if (item.name === "Reports" && !userRights.includes("reports")) return false;
+      if (item.name === "Notifications" && !userRights.includes("notifications")) return false;
       if (item.name === "Settings" && !userRights.includes("settings")) return false;
     }
 

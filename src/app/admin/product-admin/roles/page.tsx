@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { 
   ShieldCheck, Check, Save, Send, Loader2, AlertCircle, CheckCircle2, ChevronRight, Sliders
 } from "lucide-react";
@@ -27,11 +28,13 @@ const ACTIONS = [
 
 export default function MerchantRolesMatrixPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const role = session?.user?.role;
 
   const [users, setUsers] = useState<MerchantUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   
-  // Modules allowed (possessed) by Product Admin, and target user mappings
+  // Modules allowed (possessed) by Admin, and target user mappings
   const [allowedModules, setAllowedModules] = useState<string[]>([]);
   const [productAdminPossessed, setProductAdminPossessed] = useState<PermissionMapping[]>([]);
   const [mappings, setMappings] = useState<PermissionMapping[]>([]);
@@ -43,15 +46,20 @@ export default function MerchantRolesMatrixPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Fetch eligible Merchant Users (must have userApprovalStatus = APPROVED)
+  // Fetch eligible Users (Product Admins if Super Admin, else Merchant Users)
   useEffect(() => {
+    if (!role) return;
     const fetchUsers = async () => {
       try {
-        const res = await fetch("/api/product-admin/merchant-users");
-        if (!res.ok) throw new Error("Failed to load Merchant Users");
+        const url = role === "SUPER_ADMIN"
+          ? "/api/super-admin/product-admins"
+          : "/api/product-admin/merchant-users";
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load users");
         const data = await res.json();
         
-        // ONLY Approved Merchant Users are eligible
+        // ONLY Approved Users are eligible
         const eligible = data.filter((u: any) => u.userApprovalStatus === "APPROVED");
         setUsers(eligible);
         if (eligible.length > 0) {
@@ -64,7 +72,7 @@ export default function MerchantRolesMatrixPage() {
       }
     };
     fetchUsers();
-  }, []);
+  }, [role]);
 
   // Fetch Checker configuration
   useEffect(() => {
@@ -80,9 +88,9 @@ export default function MerchantRolesMatrixPage() {
     fetchCheckerConfig();
   }, []);
 
-  // Fetch permissions mapping for selected Merchant User
+  // Fetch permissions mapping for selected User
   useEffect(() => {
-    if (!selectedUserId) {
+    if (!selectedUserId || !role) {
       setMappings([]);
       setUserMatrixStatus("DRAFT");
       return;
@@ -93,19 +101,27 @@ export default function MerchantRolesMatrixPage() {
       setError(null);
       setSuccess(null);
       try {
-        const res = await fetch(`/api/product-admin/roles?userId=${selectedUserId}`);
+        const url = role === "SUPER_ADMIN"
+          ? `/api/super-admin/roles?userId=${selectedUserId}`
+          : `/api/product-admin/roles?userId=${selectedUserId}`;
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to load roles matrix");
         const data = await res.json();
 
-        // 1. Load Product Admin's owned permissions
-        const possessed = data.productAdminPermissions as PermissionMapping[];
+        // 1. Load Admin's owned permissions
+        const possessed = (role === "SUPER_ADMIN"
+          ? data.superAdminPermissions
+          : data.productAdminPermissions) as PermissionMapping[];
         setProductAdminPossessed(possessed);
         
         const uniqueModules = Array.from(new Set(possessed.map(p => p.module)));
         setAllowedModules(uniqueModules);
 
-        // 2. Set Merchant User's currently assigned mappings
-        const userPerms = data.merchantUserPermissions as PermissionMapping[];
+        // 2. Set target User's currently assigned mappings
+        const userPerms = (role === "SUPER_ADMIN"
+          ? data.productAdminPermissions
+          : data.merchantUserPermissions) as PermissionMapping[];
         setMappings(userPerms);
 
         const u = users.find(usr => usr.id === selectedUserId);
@@ -118,7 +134,7 @@ export default function MerchantRolesMatrixPage() {
     };
 
     fetchPermissions();
-  }, [selectedUserId, users]);
+  }, [selectedUserId, users, role]);
 
   const possessPermission = (mod: string, act: string) => {
     return productAdminPossessed.some(
@@ -179,7 +195,6 @@ export default function MerchantRolesMatrixPage() {
 
   const handleGrantAll = () => {
     if (userMatrixStatus === "PENDING" && checkerEnabled) return;
-    // Grant ONLY the ones possessed by the Product Admin
     setMappings(productAdminPossessed);
     setSuccess("Grant All checked (restricted to permissions you own). Save or Submit to persist changes.");
   };
@@ -191,13 +206,17 @@ export default function MerchantRolesMatrixPage() {
   };
 
   const handleSaveOrSubmit = async (status: "DRAFT" | "PENDING") => {
-    if (!selectedUserId) return;
+    if (!selectedUserId || !role) return;
     setIsLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const res = await fetch("/api/product-admin/roles", {
+      const url = role === "SUPER_ADMIN"
+        ? "/api/super-admin/roles"
+        : "/api/product-admin/roles";
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,9 +249,9 @@ export default function MerchantRolesMatrixPage() {
       case "PENDING":
         return "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200/50";
       case "APPROVED":
-        return "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border border-green-200/50";
+        return "bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/50";
       case "REJECTED":
-        return "bg-rose-50 text-rose-700 dark:bg-rose-955/20 dark:text-rose-450 border border-rose-200/50";
+        return "bg-rose-50 text-rose-700 dark:bg-rose-955/20 dark:text-rose-455 border border-rose-200/50";
       case "RETURNED":
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/50";
       default:
@@ -247,7 +266,9 @@ export default function MerchantRolesMatrixPage() {
       <div>
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Roles & Matrix (Maker)</h2>
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          Assign rights to Merchant Users. You can only assign permissions that the Super Admin has approved for your account.
+          {role === "SUPER_ADMIN" 
+            ? "Assign rights to Product Admins. You can only assign permissions that the Developer has approved for your account."
+            : "Assign rights to Merchant Users. You can only assign permissions that the Super Admin has approved for your account."}
         </p>
       </div>
 
@@ -268,7 +289,9 @@ export default function MerchantRolesMatrixPage() {
       {/* User Selection */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/50 dark:border-slate-800/50 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1 w-full md:w-96">
-          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Select Merchant User</label>
+          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            {role === "SUPER_ADMIN" ? "Select Product Admin" : "Select Merchant User"}
+          </label>
           {users.length > 0 ? (
             <select
               value={selectedUserId}
@@ -283,7 +306,10 @@ export default function MerchantRolesMatrixPage() {
             </select>
           ) : (
             <p className="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4" /> No Approved Merchant Users eligible for role assignment.
+              <AlertCircle className="w-4 h-4" /> 
+              {role === "SUPER_ADMIN" 
+                ? "No Approved Product Admins eligible for role assignment."
+                : "No Approved Merchant Users eligible for role assignment."}
             </p>
           )}
         </div>

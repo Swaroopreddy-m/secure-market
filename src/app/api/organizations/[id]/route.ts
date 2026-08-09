@@ -146,6 +146,31 @@ export async function DELETE(
       await tx.customer.deleteMany({
         where: { organizationId: id }
       });
+
+      // 6b. Delete merchant products and associated tables
+      const orgMerchantProductIds = (await tx.merchantProduct.findMany({
+        where: { organizationId: id },
+        select: { id: true }
+      })).map(p => p.id);
+
+      await tx.merchantProductHistory.deleteMany({
+        where: { productId: { in: orgMerchantProductIds } }
+      });
+      await tx.merchantInventory.deleteMany({
+        where: { organizationId: id }
+      });
+      await tx.merchantPrice.deleteMany({
+        where: { organizationId: id }
+      });
+      await tx.merchantImage.deleteMany({
+        where: { organizationId: id }
+      });
+      await tx.merchantProduct.deleteMany({
+        where: { organizationId: id }
+      });
+      await tx.merchantCategory.deleteMany({
+        where: { organizationId: id }
+      });
       
       // 7. Delete users related tables like sessions and accounts
       const orgUserIds = (await tx.user.findMany({

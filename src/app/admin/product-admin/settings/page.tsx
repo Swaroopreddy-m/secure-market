@@ -2,18 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { 
-  Settings, Save, Sparkles, Loader2, AlertCircle, CheckCircle2, ShieldAlert, Clock, AlertTriangle
+  Settings, Save, Loader2, AlertCircle, CheckCircle2, ShieldAlert, AlertTriangle
 } from "lucide-react";
 
 export default function ConfigurationsPage() {
   const [configs, setConfigs] = useState({
     MAKER_CHECKER_CHECKER_ENABLED: "true",
-    MAKER_CHECKER_MAKER_ENABLED: "true",
-    MAKER_CHECKER_DUAL_APPROVAL: "true",
-    SESSION_AUTO_LOGOUT: "true",
-    SESSION_TIMEOUT_MINUTES: "15",
-    SESSION_WARNING_POPUP: "true",
-    SESSION_WARNING_BEFORE_TIMEOUT_MINUTES: "1"
+    MAKER_CHECKER_DUAL_APPROVAL: "true"
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -27,9 +22,14 @@ export default function ConfigurationsPage() {
         const res = await fetch("/api/product-admin/settings");
         if (!res.ok) throw new Error("Failed to load settings configuration");
         const data = await res.json();
+        const configMap: any = {};
+        data.forEach((c: any) => {
+          configMap[c.key] = c.value;
+        });
         setConfigs(prev => ({
           ...prev,
-          ...data
+          MAKER_CHECKER_CHECKER_ENABLED: configMap.MAKER_CHECKER_CHECKER_ENABLED || "true",
+          MAKER_CHECKER_DUAL_APPROVAL: configMap.MAKER_CHECKER_DUAL_APPROVAL || "true"
         }));
       } catch (err: any) {
         setError(err.message);
@@ -49,22 +49,6 @@ export default function ConfigurationsPage() {
     setIsSaving(true);
     setError(null);
     setSuccess(null);
-
-    // Validations
-    const timeoutMin = parseInt(configs.SESSION_TIMEOUT_MINUTES);
-    const warningMin = parseInt(configs.SESSION_WARNING_BEFORE_TIMEOUT_MINUTES);
-
-    if (isNaN(timeoutMin) || timeoutMin <= 0) {
-      setError("Session Timeout Limit must be a positive integer.");
-      setIsSaving(false);
-      return;
-    }
-
-    if (isNaN(warningMin) || warningMin < 0 || warningMin >= timeoutMin) {
-      setError("Warning Threshold must be positive and less than the Session Timeout Limit.");
-      setIsSaving(false);
-      return;
-    }
 
     try {
       const res = await fetch("/api/product-admin/settings", {
@@ -104,7 +88,7 @@ export default function ConfigurationsPage() {
       <div>
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">System & Security Settings</h2>
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          Configure multi-tenant workflow controls, Maker-Checker overrides, and automated session inactivity parameters.
+          Configure multi-tenant workflow controls and Maker-Checker overrides.
         </p>
       </div>
 
@@ -130,143 +114,47 @@ export default function ConfigurationsPage() {
             <ShieldAlert className="w-4 h-4 text-indigo-500" /> Maker-Checker Workflow Configuration
           </h3>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             
-            {/* Checker Toggle */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">Enable Checker Workflow</h4>
+            {/* Maker & Checker Selection */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-black text-slate-850 dark:text-slate-200">Maker & Checker</h4>
                 <p className="text-[11px] font-semibold text-slate-400 max-w-md mt-0.5">
-                  If disabled, checker tabs are hidden. Maker creations & roles matrices are auto-approved directly on submission.
+                  If enabled, records will be shared to another confirm tabs for approval. If disabled, direct confirmation is applied for all users.
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={configs.MAKER_CHECKER_CHECKER_ENABLED === "true"}
-                  onChange={(e) => handleChange("MAKER_CHECKER_CHECKER_ENABLED", e.target.checked ? "true" : "false")}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
+              <div className="w-full sm:w-56">
+                <select
+                  value={configs.MAKER_CHECKER_CHECKER_ENABLED}
+                  onChange={(e) => handleChange("MAKER_CHECKER_CHECKER_ENABLED", e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl py-2.5 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  <option value="true">ENABLE</option>
+                  <option value="false">DISABLE</option>
+                </select>
+              </div>
             </div>
 
-            {/* Maker Toggle */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-850">
-              <div>
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">Enable Maker Workflow</h4>
+            {/* Same Maker & Checker Selection */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-slate-100 dark:border-slate-850">
+              <div className="space-y-1">
+                <h4 className="text-xs font-black text-slate-855 dark:text-slate-200">Same Maker & Checker</h4>
                 <p className="text-[11px] font-semibold text-slate-400 max-w-md mt-0.5">
-                  If enabled, creators must submit merchant actions for secondary confirmation before system updates.
+                  If enabled, the same person who created or modified the record can perform the checker confirmation step.
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={configs.MAKER_CHECKER_MAKER_ENABLED === "true"}
-                  onChange={(e) => handleChange("MAKER_CHECKER_MAKER_ENABLED", e.target.checked ? "true" : "false")}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-
-            {/* Dual Approval (Maker-Checker lock) */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-855">
-              <div>
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">Dual Approval Rule Enforcement</h4>
-                <p className="text-[11px] font-semibold text-slate-400 max-w-md mt-0.5">
-                  Enforces secondary verification. Under dual approval, the Maker username cannot approve their own submissions.
-                </p>
+              <div className="w-full sm:w-56">
+                <select
+                  value={configs.MAKER_CHECKER_DUAL_APPROVAL}
+                  onChange={(e) => handleChange("MAKER_CHECKER_DUAL_APPROVAL", e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-2xl py-2.5 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  {/* Note: Enable = Dual approval constraint is false (allowing same person to confirm) */}
+                  <option value="false">ENABLE (Same person can confirm)</option>
+                  <option value="true">DISABLE (Different person required)</option>
+                </select>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={configs.MAKER_CHECKER_DUAL_APPROVAL === "true"}
-                  onChange={(e) => handleChange("MAKER_CHECKER_DUAL_APPROVAL", e.target.checked ? "true" : "false")}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Session Inactivity Timeout Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 space-y-6">
-          <h3 className="font-extrabold text-sm text-slate-850 dark:text-slate-200 border-b pb-3 border-slate-100 dark:border-slate-800 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-500" /> Automated Inactivity Session Parameters
-          </h3>
-
-          <div className="space-y-4">
-            
-            {/* Auto Logout Toggle */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">Inactivity Auto-Logout</h4>
-                <p className="text-[11px] font-semibold text-slate-400 max-w-md mt-0.5">
-                  Track client keystrokes and scroll movements. Log out user automatically if inactivity exceeds limit.
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={configs.SESSION_AUTO_LOGOUT === "true"}
-                  onChange={(e) => handleChange("SESSION_AUTO_LOGOUT", e.target.checked ? "true" : "false")}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-
-            {/* Inactivity warning popup toggle */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-850">
-              <div>
-                <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">Display Impending Timeout Warnings</h4>
-                <p className="text-[11px] font-semibold text-slate-400 max-w-md mt-0.5">
-                  Present a modal reminder box allowing the operator to click "Stay Logged In" before automatic session closure.
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={configs.SESSION_WARNING_POPUP === "true"}
-                  onChange={(e) => handleChange("SESSION_WARNING_POPUP", e.target.checked ? "true" : "false")}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-              </label>
-            </div>
-
-            {/* Integer inputs row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-850">
-              
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Session Timeout Limit (Minutes)</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  disabled={configs.SESSION_AUTO_LOGOUT !== "true"}
-                  value={configs.SESSION_TIMEOUT_MINUTES}
-                  onChange={(e) => handleChange("SESSION_TIMEOUT_MINUTES", e.target.value)}
-                  className="w-full bg-slate-50 disabled:bg-slate-100/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Show Warning Popup Before (Minutes)</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  disabled={configs.SESSION_WARNING_POPUP !== "true" || configs.SESSION_AUTO_LOGOUT !== "true"}
-                  value={configs.SESSION_WARNING_BEFORE_TIMEOUT_MINUTES}
-                  onChange={(e) => handleChange("SESSION_WARNING_BEFORE_TIMEOUT_MINUTES", e.target.value)}
-                  className="w-full bg-slate-50 disabled:bg-slate-100/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
-                />
-              </div>
-
             </div>
 
           </div>
@@ -277,7 +165,7 @@ export default function ConfigurationsPage() {
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" />
           <div>
             <strong className="block font-bold">Important Notice</strong>
-            Updating security settings will commit updates directly to the systems configurations table. Layout views & route maps will immediately sync.
+            Updating workflow settings will commit updates directly to the systems configurations table. Layout views & route maps will immediately sync.
           </div>
         </div>
 

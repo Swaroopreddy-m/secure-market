@@ -58,7 +58,19 @@ export async function POST(request: Request) {
     const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
     const makerUsername = currentUser?.username || session.user.name || "devroot";
 
-    const permissionStatus = submitStatus === "PENDING" ? "PENDING_CONFIRMATION" : "DRAFT";
+    const checkerConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_CHECKER_ENABLED" } });
+    const checkerEnabled = checkerConfig?.value !== "false";
+
+    let permissionStatus = "DRAFT";
+    let roleMatrixStatus = "DRAFT";
+
+    if (checkerEnabled) {
+      permissionStatus = submitStatus === "PENDING" ? "PENDING_CONFIRMATION" : "DRAFT";
+      roleMatrixStatus = submitStatus;
+    } else {
+      permissionStatus = "APPROVED";
+      roleMatrixStatus = "APPROVED";
+    }
 
     // Recreate mappings in transaction
     await prisma.$transaction(async (tx) => {
@@ -80,11 +92,25 @@ export async function POST(request: Request) {
         });
       }
 
-      // 3. Update User's role matrix status
+      // 3. Update User's role matrix status and promotion check
+      let finalUserStatus = targetUser.status;
+      if (roleMatrixStatus === "APPROVED" && targetUser.userApprovalStatus === "APPROVED") {
+        finalUserStatus = "ACTIVE";
+      }
+
+      // Compile department modules
+      let departmentVal = targetUser.department || "";
+      if (roleMatrixStatus === "APPROVED") {
+        const modules = Array.from(new Set(permissions.map(p => p.module.toLowerCase())));
+        departmentVal = modules.join(",");
+      }
+
       await tx.user.update({
         where: { id: userId },
         data: {
-          roleMatrixStatus: submitStatus, // DRAFT or PENDING
+          roleMatrixStatus,
+          status: finalUserStatus,
+          department: departmentVal
         }
       });
     });

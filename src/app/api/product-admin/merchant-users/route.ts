@@ -170,6 +170,8 @@ export async function POST(request: Request) {
     const userApprovalStatus = checkerEnabled
       ? (validated.submitStatus === "PENDING" ? "PENDING" : "DRAFT")
       : "APPROVED";
+    const roleMatrixStatus = checkerEnabled ? "DRAFT" : "APPROVED";
+    const finalStatus = checkerEnabled ? "PENDING" : "ACTIVE";
 
     const roleRecord = await prisma.role.findUnique({
       where: { name: "USER" }
@@ -186,7 +188,7 @@ export async function POST(request: Request) {
         roleId: roleRecord?.id || null,
         department: validated.department || "",
         designation: validated.designation || "",
-        status: "PENDING", // Stays pending until user approval and role matrix are both APPROVED
+        status: finalStatus,
         organizationId: adminUser.organizationId,
         applicationId: adminUser.applicationId,
         firstName: validated.firstName,
@@ -195,7 +197,7 @@ export async function POST(request: Request) {
         remarks: remarksJson,
         makerUsername,
         userApprovalStatus,
-        roleMatrixStatus: "DRAFT" // starts as draft
+        roleMatrixStatus
       }
     });
 

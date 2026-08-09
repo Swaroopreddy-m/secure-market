@@ -108,7 +108,19 @@ export async function POST(request: Request) {
     });
     const makerUsername = creatorUser?.username || session.user.name || "supermaker";
 
-    const permissionStatus = submitStatus === "PENDING" ? "PENDING_CONFIRMATION" : "DRAFT";
+    const checkerConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_CHECKER_ENABLED" } });
+    const checkerEnabled = checkerConfig?.value !== "false";
+
+    let permissionStatus = "DRAFT";
+    let roleMatrixStatus = "DRAFT";
+
+    if (checkerEnabled) {
+      permissionStatus = submitStatus === "PENDING" ? "PENDING_CONFIRMATION" : "DRAFT";
+      roleMatrixStatus = submitStatus;
+    } else {
+      permissionStatus = "APPROVED";
+      roleMatrixStatus = "APPROVED";
+    }
 
     await prisma.$transaction(async (tx) => {
       // 1. Delete all existing permissions for the Product Admin
@@ -129,11 +141,25 @@ export async function POST(request: Request) {
         });
       }
 
-      // 3. Update Product Admin's role matrix status
+      // 3. Update Product Admin's role matrix status and status promotion
+      let nextUserStatus = productAdmin.status;
+      if (roleMatrixStatus === "APPROVED" && productAdmin.userApprovalStatus === "APPROVED") {
+        nextUserStatus = "ACTIVE";
+      }
+
+      // Update the department field to serialize active modules if APPROVED
+      let departmentVal = productAdmin.department || "";
+      if (roleMatrixStatus === "APPROVED") {
+        const modules = Array.from(new Set(permissions.map(p => p.module.toLowerCase())));
+        departmentVal = modules.join(",");
+      }
+
       await tx.user.update({
         where: { id: userId },
         data: {
-          roleMatrixStatus: submitStatus // DRAFT or PENDING
+          roleMatrixStatus,
+          status: nextUserStatus,
+          department: departmentVal
         }
       });
     });

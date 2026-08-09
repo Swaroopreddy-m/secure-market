@@ -75,13 +75,13 @@ export async function POST(request: Request) {
       const firstPendingPerm = user.superAdminPermissions.find(p => p.status === "PENDING_CONFIRMATION");
       const makerUsername = firstPendingPerm?.makerUsername || user.makerUsername || "devroot";
 
-      // Banking Rule: Maker cannot be Checker of their own submissions
-      // (Bypassed for staging environments with a single developer account)
-      /*
-      if (makerUsername === checkerUsername) {
+      // Banking Rule: Maker cannot be Checker of their own submissions if dual approval is enforced
+      const dualApprovalConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_DUAL_APPROVAL" } });
+      const dualApproval = dualApprovalConfig?.value === "true";
+
+      if (dualApproval && makerUsername === checkerUsername) {
         return NextResponse.json({ error: `Security Policy Violation: You cannot approve/reject/return permissions you submitted for user (${user.username}).` }, { status: 400 });
       }
-      */
 
       let nextMatrixStatus = "DRAFT";
       let nextPermStatus = "DRAFT";

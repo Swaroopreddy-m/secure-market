@@ -106,8 +106,11 @@ export async function POST(request: Request) {
       const firstPending = user.superAdminPermissions.find(p => p.status === "PENDING_CONFIRMATION");
       const makerUsername = firstPending?.makerUsername || user.makerUsername || "supermaker";
 
-      // Banking Rule: Maker cannot check own submissions
-      if (makerUsername === checkerUsername) {
+      // Banking Rule: Maker cannot check own submissions if dual approval is enforced
+      const dualApprovalConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_DUAL_APPROVAL" } });
+      const dualApproval = dualApprovalConfig?.value === "true";
+
+      if (dualApproval && makerUsername === checkerUsername) {
         return NextResponse.json({ 
           error: `Security Policy Violation: You cannot approve/reject/return permissions because you originally submitted them for Product Admin (${user.username}).` 
         }, { status: 400 });

@@ -130,6 +130,13 @@ export async function POST(request: Request) {
     });
     const makerUsername = creatorUser?.username || session.user.name || "supermaker";
 
+    const checkerConfig = await prisma.configuration.findUnique({ where: { key: "MAKER_CHECKER_CHECKER_ENABLED" } });
+    const checkerEnabled = checkerConfig?.value !== "false";
+
+    const userApprovalStatus = checkerEnabled ? validatedData.userApprovalStatus : "APPROVED";
+    const roleMatrixStatus = checkerEnabled ? "DRAFT" : "APPROVED";
+    const finalStatus = checkerEnabled ? "PENDING" : "ACTIVE";
+
     const user = await prisma.user.create({
       data: {
         employeeId,
@@ -140,7 +147,7 @@ export async function POST(request: Request) {
         role: "PRODUCT_ADMIN",
         roleId: roleRecord?.id || null,
         department: validatedData.department || "",
-        status: "PENDING", // Starts inactive
+        status: finalStatus,
         organizationId: orgId,
         applicationId: validatedData.applicationId,
         firstName: validatedData.firstName,
@@ -149,8 +156,8 @@ export async function POST(request: Request) {
         designation: validatedData.designation,
         remarks: validatedData.remarks || "",
         makerUsername,
-        userApprovalStatus: validatedData.userApprovalStatus, // DRAFT or PENDING
-        roleMatrixStatus: "DRAFT" // Roles status starts as Draft
+        userApprovalStatus,
+        roleMatrixStatus
       }
     });
 

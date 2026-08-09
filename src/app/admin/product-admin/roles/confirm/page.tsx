@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   ShieldCheck, Check, X, Undo, AlertCircle, Loader2, Search, Eye, 
   MessageSquare, FileSpreadsheet, ListFilter
@@ -26,6 +27,9 @@ interface PendingMatrix {
 }
 
 export default function RolesConfirmPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+
   const [submissions, setSubmissions] = useState<PendingMatrix[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,9 +46,14 @@ export default function RolesConfirmPage() {
   const [remarksText, setRemarksText] = useState("");
 
   const fetchPending = async () => {
+    if (!role) return;
     setIsLoading(true);
     try {
-      const res = await fetch("/api/product-admin/roles/confirm");
+      const url = role === "SUPER_ADMIN"
+        ? "/api/super-admin/roles/confirm"
+        : "/api/product-admin/roles/confirm";
+
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to load pending roles matrix submissions");
       const data = await res.json();
       setSubmissions(data);
@@ -58,7 +67,7 @@ export default function RolesConfirmPage() {
 
   useEffect(() => {
     fetchPending();
-  }, []);
+  }, [role]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -91,7 +100,7 @@ export default function RolesConfirmPage() {
   };
 
   const handleActionSubmit = async () => {
-    if (!remarksAction) return;
+    if (!remarksAction || !role) return;
 
     const isBulk = remarksAction.startsWith("BULK_");
     const resolvedAction = remarksAction.replace("BULK_", "") as "APPROVE" | "REJECT" | "RETURN";
@@ -106,7 +115,11 @@ export default function RolesConfirmPage() {
     setSuccess(null);
 
     try {
-      const res = await fetch("/api/product-admin/roles/confirm", {
+      const url = role === "SUPER_ADMIN"
+        ? "/api/super-admin/roles/confirm"
+        : "/api/product-admin/roles/confirm";
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,7 +155,9 @@ export default function RolesConfirmPage() {
       <div>
         <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Roles & Matrix Confirmation</h2>
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          Review pending roles permission matrix submissions for Merchant User accounts.
+          {role === "SUPER_ADMIN"
+            ? "Review pending roles permission matrix submissions for Product Admin accounts."
+            : "Review pending roles permission matrix submissions for Merchant User accounts."}
         </p>
       </div>
 
