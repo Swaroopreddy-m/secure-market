@@ -20,6 +20,7 @@ declare module "next-auth" {
       customerId?: string | null;
       organizationId?: string | null;
       department?: string | null;
+      applicationId?: string | null;
     };
     sessionId?: string | null;
   }
@@ -29,6 +30,7 @@ declare module "next-auth" {
     customerId?: string | null;
     organizationId?: string | null;
     department?: string | null;
+    applicationId?: string | null;
     sessionId?: string | null;
   }
 }
@@ -71,6 +73,7 @@ export const authOptions: NextAuthOptions = {
               customerId: devUser.customerId,
               organizationId: devUser.organizationId,
               department: devUser.department,
+              applicationId: devUser.applicationId,
               sessionId: newSessionId
             };
           }
@@ -179,6 +182,7 @@ export const authOptions: NextAuthOptions = {
           customerId: user.customerId,
           organizationId: user.organizationId,
           department: user.department,
+          applicationId: user.applicationId,
           sessionId: newSessionId
         };
       }
@@ -195,6 +199,7 @@ export const authOptions: NextAuthOptions = {
         token.customerId = user.customerId;
         token.organizationId = user.organizationId;
         token.department = user.department;
+        token.applicationId = user.applicationId;
         token.sessionId = user.sessionId;
       }
       return token;
@@ -205,7 +210,25 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.customerId = token.customerId as string | null;
         session.user.organizationId = token.organizationId as string | null;
-        session.user.department = token.department as string | null;
+
+        // Dynamically fetch current department permissions and applicationId from DB to prevent stale session cookies
+        let currentDepartment = token.department as string | null;
+        let currentAppId = token.applicationId as string | null;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub as string },
+            select: { department: true, applicationId: true }
+          });
+          if (dbUser) {
+            currentDepartment = dbUser.department;
+            currentAppId = dbUser.applicationId;
+          }
+        } catch (e) {
+          console.error("Failed to query live user details:", e);
+        }
+
+        session.user.department = currentDepartment;
+        session.user.applicationId = currentAppId;
 
         // Verify that this session's token matches active session in DB (FORCE_LOGOUT check)
         let active = null;

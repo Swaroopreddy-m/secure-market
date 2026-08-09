@@ -11,15 +11,30 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions);
 
     let organizationIdFilter = {};
+    let applicationIdFilter = {};
     if (session && session.user && session.user.role !== "DEVELOPER") {
       organizationIdFilter = { organizationId: session.user.organizationId };
+      if (session.user.applicationId) {
+        applicationIdFilter = { applicationId: session.user.applicationId };
+      }
     }
+
+    // Only get products that correspond to APPROVED and ACTIVE MerchantProducts in the DB
+    const merchantProductIds = (await prisma.merchantProduct.findMany({
+      where: {
+        approvalStatus: "APPROVED",
+        status: "ACTIVE"
+      },
+      select: { id: true }
+    })).map(p => p.id);
 
     const products = await prisma.storeProduct.findMany({
       where: {
+        id: { in: merchantProductIds },
         AND: [
           category && category !== "All" ? { category } : {},
           organizationIdFilter,
+          applicationIdFilter,
           {
             OR: [
               { shopId: null },
