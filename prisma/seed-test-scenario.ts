@@ -144,7 +144,7 @@ async function main() {
       
       await prisma.superAdminPermission.createMany({
         data: modules.flatMap(mod => actions.map(act => ({
-          userId: user.id,
+          userId: user!.id,
           module: mod,
           action: act,
           status: "APPROVED",
@@ -198,7 +198,7 @@ async function main() {
       
       await prisma.superAdminPermission.createMany({
         data: modules.flatMap(mod => actions.map(act => ({
-          userId: user.id,
+          userId: user!.id,
           module: mod,
           action: act,
           status: "APPROVED",
@@ -244,9 +244,9 @@ async function main() {
     });
 
     if (!product) {
-      product = await prisma.merchantProduct.create({
+      const newProduct = await prisma.merchantProduct.create({
         data: {
-          categoryId: category.id,
+          categoryId: category!.id,
           name: productName,
           code: `PROD-${muKey}`,
           brand: "PremiumBrand",
@@ -267,24 +267,25 @@ async function main() {
           version: 1
         }
       });
-      console.log(`Created Product: ${product.name} for Merchant ${merchant.username}`);
+      product = newProduct;
+      console.log(`Created Product: ${newProduct.name} for Merchant ${merchant.username}`);
 
       // Create history version log
       await prisma.merchantProductHistory.create({
         data: {
-          productId: product.id,
-          name: product.name,
-          categoryId: product.categoryId,
-          brand: product.brand,
-          sku: product.sku,
-          barcode: product.barcode,
-          shortDescription: product.shortDescription,
-          longDescription: product.longDescription,
-          unit: product.unit,
-          weight: product.weight,
-          dimensions: product.dimensions,
-          tax: product.tax,
-          status: product.status,
+          productId: newProduct.id,
+          name: newProduct.name,
+          categoryId: newProduct.categoryId,
+          brand: newProduct.brand,
+          sku: newProduct.sku,
+          barcode: newProduct.barcode,
+          shortDescription: newProduct.shortDescription,
+          longDescription: newProduct.longDescription,
+          unit: newProduct.unit,
+          weight: newProduct.weight,
+          dimensions: newProduct.dimensions,
+          tax: newProduct.tax,
+          status: newProduct.status,
           version: 1,
           action: "CREATE",
           details: "Initial setup.",
@@ -295,7 +296,7 @@ async function main() {
       // 3. Create Pricing
       const price = await prisma.merchantPrice.create({
         data: {
-          productId: product.id,
+          productId: newProduct.id,
           mrp: 100.0,
           sellingPrice: 85.0,
           offerPrice: 80.0,
@@ -314,7 +315,7 @@ async function main() {
       // 4. Create Inventory Batch
       const inventory = await prisma.merchantInventory.create({
         data: {
-          productId: product.id,
+          productId: newProduct.id,
           batchNumber: `BATCH-${muKey}`,
           quantity: 150,
           availableQuantity: 150,
@@ -335,7 +336,7 @@ async function main() {
       const imageUrl = `/images/products/${merchant.username}_product.png`;
       await prisma.merchantImage.create({
         data: {
-          productId: product.id,
+          productId: newProduct.id,
           url: imageUrl,
           isPrimary: true,
           isThumbnail: true,
@@ -350,21 +351,21 @@ async function main() {
       // 6. Project to Marketplace StoreProduct storefront
       await prisma.storeProduct.create({
         data: {
-          id: product.id,
-          name: product.name,
+          id: newProduct.id,
+          name: newProduct.name,
           price: price.sellingPrice,
-          unit: product.unit || "pcs",
-          category: category.name,
+          unit: newProduct.unit || "pcs",
+          category: category!.name,
           image: imageUrl,
           inStock: true,
           applicationId: merchant.applicationId!,
           organizationId: merchant.organizationId!,
-          description: product.shortDescription || "",
+          description: newProduct.shortDescription || "",
           stock: inventory.quantity,
           discount: price.discount
         }
       });
-      console.log(`Synced product ${product.name} to global Marketplace storefront.`);
+      console.log(`Synced product ${newProduct.name} to global Marketplace storefront.`);
     }
   }
 
