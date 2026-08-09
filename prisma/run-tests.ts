@@ -15,9 +15,9 @@ async function runTests() {
   let passed = 0;
   let failed = 0;
 
-  async function assert(name: string, condition: boolean | Promise<boolean>) {
+  async function assert(name: string, condition: () => Promise<boolean>) {
     try {
-      const result = await condition;
+      const result = await condition();
       if (result) {
         console.log(`[PASS] ${name}`);
         passed++;

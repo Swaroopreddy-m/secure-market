@@ -178,7 +178,7 @@ export default function ProductAdminMerchantRequests() {
       )}
 
       {/* Tabs list */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2">
+      <div className="flex overflow-x-auto whitespace-nowrap border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 pb-px scrollbar-none">
         {(["CATEGORY", "PRODUCT", "INVENTORY", "PRICE", "IMAGE"] as const).map(tab => {
           let count = 0;
           switch (tab) {
@@ -196,7 +196,7 @@ export default function ProductAdminMerchantRequests() {
                 setActiveTab(tab);
                 setSelectedIds([]);
               }}
-              className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider relative transition-all ${
+              className={`pb-3 px-3 sm:px-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider relative transition-all ${
                 isActive ? "text-indigo-650 dark:text-indigo-400" : "text-slate-400 hover:text-slate-655"
               }`}
             >
@@ -225,30 +225,30 @@ export default function ProductAdminMerchantRequests() {
               placeholder="Provide comments or evaluation notes. Remarks are mandatory if Rejecting or Returning submissions."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              className="w-full bg-slate-55 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-850 rounded-2xl py-3 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
+              className="w-full bg-slate-55 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-855 rounded-2xl py-3 px-4 focus:outline-none text-xs font-semibold text-slate-800 dark:text-slate-200"
             />
           </div>
         </div>
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
           <button
             onClick={() => handleProcessAction("RETURN")}
             disabled={isSubmitLoading || selectedIds.length === 0}
-            className="flex items-center gap-1.5 px-4.5 py-2.5 border border-amber-600 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-955/20 rounded-2xl font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4.5 py-2.5 border border-amber-600 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-955/20 rounded-2xl font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
           >
             <CornerUpLeft className="w-4 h-4" /> Return to Maker
           </button>
           <button
             onClick={() => handleProcessAction("REJECT")}
             disabled={isSubmitLoading || selectedIds.length === 0}
-            className="flex items-center gap-1.5 px-4.5 py-2.5 border border-rose-600 text-rose-650 hover:bg-rose-50 dark:hover:bg-rose-955/20 rounded-2xl font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4.5 py-2.5 border border-rose-600 text-rose-650 hover:bg-rose-50 dark:hover:bg-rose-955/20 rounded-2xl font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
           >
             <X className="w-4 h-4" /> Reject Submission
           </button>
           <button
             onClick={() => handleProcessAction("APPROVE")}
             disabled={isSubmitLoading || selectedIds.length === 0}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-indigo-655/25 disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-indigo-655/25 disabled:opacity-50"
           >
             <Check className="w-4 h-4" /> Approve & Publish
           </button>
