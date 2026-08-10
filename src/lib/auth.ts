@@ -214,41 +214,45 @@ export const authOptions: NextAuthOptions = {
         // Dynamically fetch current department permissions and applicationId from DB to prevent stale session cookies
         let currentDepartment = token.department as string | null;
         let currentAppId = token.applicationId as string | null;
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.sub as string },
-            select: { department: true, applicationId: true }
-          });
-          if (dbUser) {
-            currentDepartment = dbUser.department;
-            currentAppId = dbUser.applicationId;
+        if (token.sub) {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: token.sub as string },
+              select: { department: true, applicationId: true }
+            });
+            if (dbUser) {
+              currentDepartment = dbUser.department;
+              currentAppId = dbUser.applicationId;
+            }
+          } catch (e) {
+            console.error("Failed to query live user details:", e);
           }
-        } catch (e) {
-          console.error("Failed to query live user details:", e);
         }
 
         session.user.department = currentDepartment;
         session.user.applicationId = currentAppId;
 
         // Verify that this session's token matches active session in DB (FORCE_LOGOUT check)
-        let active = null;
-        try {
-          active = await prisma.activeSession.findUnique({
-            where: { sessionId: token.sessionId as string }
-          });
-        } catch (e) {
-          console.error("Failed to query active session on verification:", e);
-          // Fallback to active state if database is temporarily locked or busy to prevent login loop
-          active = { id: "fallback" };
-        }
-        
-        if (!active) {
-          // If active session has been overwritten or deleted, clear user to force logout without hanging
-          delete (session as any).user;
-          return session;
-        }
+        if (token.sessionId) {
+          let active = null;
+          try {
+            active = await prisma.activeSession.findUnique({
+              where: { sessionId: token.sessionId as string }
+            });
+          } catch (e) {
+            console.error("Failed to query active session on verification:", e);
+            // Fallback to active state if database is temporarily locked or busy to prevent login loop
+            active = { id: "fallback" };
+          }
+          
+          if (!active) {
+            // If active session has been overwritten or deleted, clear user to force logout without hanging
+            delete (session as any).user;
+            return session;
+          }
 
-        session.sessionId = token.sessionId as string;
+          session.sessionId = token.sessionId as string;
+        }
       }
       return session;
     },

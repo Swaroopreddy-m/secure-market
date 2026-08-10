@@ -33,31 +33,96 @@ export async function POST(request: Request) {
       }
     });
 
-    const order = await prisma.order.create({
-      data: {
-        userId: userId,
-        totalAmount,
-        status: "PENDING",
-        deliveryAddress: deliveryStreet,
-        deliveryCity: deliveryCity,
-        deliveryPhone: deliveryPhone,
-        items: {
-          create: items.map((item: { id: string; quantity: number; price: number }) => ({
+    // Execute the checkout order validation and stock deduction inside a transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // 1. Enforce stock verification and FIFO stock level deductions
+      for (const item of items) {
+        const invs = await tx.merchantInventory.findMany({
+          where: {
             productId: item.id,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+            status: "ACTIVE",
+            approvalStatus: "APPROVED"
+          },
+          orderBy: { createdAt: "asc" } // FIFO
+        });
+
+        const totalStock = invs.reduce((acc, inv) => acc + inv.quantity, 0);
+        if (item.quantity > totalStock) {
+          throw new Error(`Insufficient stock for product. Available: ${totalStock}, Requested: ${item.quantity}`);
+        }
+
+        let remainingDeduction = item.quantity;
+        for (const inv of invs) {
+          if (remainingDeduction <= 0) break;
+
+          if (inv.quantity >= remainingDeduction) {
+            await tx.merchantInventory.update({
+              where: { id: inv.id },
+              data: {
+                quantity: inv.quantity - remainingDeduction,
+                availableQuantity: inv.availableQuantity - remainingDeduction,
+                status: inv.quantity - remainingDeduction === 0 ? "INACTIVE" : "ACTIVE"
+              }
+            });
+            remainingDeduction = 0;
+          } else {
+            await tx.merchantInventory.update({
+              where: { id: inv.id },
+              data: {
+                quantity: 0,
+                availableQuantity: 0,
+                status: "INACTIVE"
+              }
+            });
+            remainingDeduction -= inv.quantity;
+          }
+        }
+
+        // 2. Project/update stock levels on Marketplace StoreProduct
+        const updatedInvs = await tx.merchantInventory.findMany({
+          where: {
+            productId: item.id,
+            status: "ACTIVE",
+            approvalStatus: "APPROVED"
+          }
+        });
+        const stockSum = updatedInvs.reduce((acc, inv) => acc + inv.quantity, 0);
+        await tx.storeProduct.updateMany({
+          where: { id: item.id },
+          data: {
+            stock: stockSum,
+            inStock: stockSum > 0
+          }
+        });
+      }
+
+      // 3. Create the order
+      return await tx.order.create({
+        data: {
+          userId: userId,
+          totalAmount,
+          status: "PENDING",
+          deliveryAddress: deliveryStreet,
+          deliveryCity: deliveryCity,
+          deliveryPhone: deliveryPhone,
+          items: {
+            create: items.map((item: { id: string; quantity: number; price: number }) => ({
+              productId: item.id,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          },
         },
-      },
+      });
     });
 
     return NextResponse.json(order);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[CHECKOUT_POST]", error);
     if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
       return NextResponse.json({ error: "Validation failed", details: error }, { status: 400 });
     }
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Internal Error" }, { status: 500 });
   }
 }
 

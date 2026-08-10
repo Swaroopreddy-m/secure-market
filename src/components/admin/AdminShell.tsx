@@ -10,7 +10,7 @@ import {
   Building2, ShieldCheck, FileSpreadsheet, Terminal, Database, BarChart3,
   Cpu, Sliders, FileText, History, Activity, AlertTriangle, Monitor,
   Plus, Check, Sparkles, User as UserIcon, Play, LogOut, CheckSquare,
-  UserPlus, ShieldAlert, Folder, Image as ImageIcon, Tag
+  UserPlus, ShieldAlert, Folder, Image as ImageIcon, Tag, Eye, Edit3
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -73,6 +73,8 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { name: "Inventory", href: "/admin/user/inventory", icon: Sliders, allowedRoles: ["USER"] },
   { name: "Product Images", href: "/admin/user/images", icon: ImageIcon, allowedRoles: ["USER"] },
   { name: "Price Management", href: "/admin/user/prices", icon: Tag, allowedRoles: ["USER"] },
+  { name: "Check Items", href: "/admin/user/check-items", icon: Eye, allowedRoles: ["USER"] },
+  { name: "Inventory Edit", href: "/admin/user/inventory-edit", icon: Edit3, allowedRoles: ["USER"] },
   { name: "Reports", href: "/admin/user/reports", icon: FileText, allowedRoles: ["USER"] },
   { name: "Notifications", href: "/admin/user/notifications", icon: Bell, allowedRoles: ["USER"] },
   { name: "Settings", href: "/admin/user/settings", icon: Settings, allowedRoles: ["USER"] }
@@ -176,6 +178,8 @@ export default function AdminShell({
       if (item.name === "Inventory" && !userRights.includes("inventory") && !userRights.includes("inventory view")) return false;
       if (item.name === "Product Images" && !userRights.includes("product images") && !userRights.includes("images") && !userRights.includes("image upload")) return false;
       if (item.name === "Price Management" && !userRights.includes("price management") && !userRights.includes("prices") && !userRights.includes("price view")) return false;
+      if (item.name === "Check Items" && !userRights.includes("inventory") && !userRights.includes("check items")) return false;
+      if (item.name === "Inventory Edit" && !userRights.includes("inventory") && !userRights.includes("inventory edit")) return false;
       if (item.name === "Reports" && !userRights.includes("reports")) return false;
       if (item.name === "Notifications" && !userRights.includes("notifications")) return false;
       if (item.name === "Settings" && !userRights.includes("settings")) return false;
